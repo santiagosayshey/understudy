@@ -66,8 +66,6 @@
 						<dt>person</dt>
 						<dd class="text-fg">{actor.tagKey}</dd>
 					{/if}
-					<dt>tag</dt>
-					<dd class="text-fg">{actor.key}</dd>
 					{#if actor.path}
 						<dt>path</dt>
 						<dd class="text-fg truncate">{actor.path}</dd>
