@@ -65,8 +65,7 @@ services:
       - "metadata-static.plex.tv:172.31.250.10"
     volumes:
       - /path/to/plex/appdata:/config
-      - ./certs/ca.crt:/understudy/ca.crt:ro
-      - ./contrib/plex:/custom-cont-init.d:ro
+      - ./certs/plex:/custom-cont-init.d:ro
 
 networks:
   understudy:

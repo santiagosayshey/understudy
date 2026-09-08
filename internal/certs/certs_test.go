@@ -41,6 +41,25 @@ func TestGenerate(t *testing.T) {
 	if _, err := leaf.Verify(x509.VerifyOptions{DNSName: "plex.tv", Roots: pool}); err == nil {
 		t.Fatal("leaf must be bound to the one hostname")
 	}
+	// The hook carries the authority, is executable, and is a script the
+	// linuxserver image will run.
+	hook, err := os.Stat(filepath.Join(dir, filepath.FromSlash(Hook)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hook.Mode().Perm()&0o111 == 0 {
+		t.Errorf("hook should be executable, got %v", hook.Mode().Perm())
+	}
+	script, _ := os.ReadFile(filepath.Join(dir, filepath.FromSlash(Hook)))
+	if !strings.HasPrefix(string(script), "#!/bin/bash\n") {
+		t.Error("hook should start with a bash shebang")
+	}
+	if !strings.Contains(string(script), string(caPEM)) {
+		t.Error("hook should embed ca.crt")
+	}
+	if !strings.Contains(string(script), "update-ca-certificates") {
+		t.Error("hook should run update-ca-certificates")
+	}
 	if err := Generate(dir, "metadata-static.plex.tv"); err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("second run must refuse to overwrite, got %v", err)
 	}
