@@ -1,6 +1,7 @@
 # build output and dependencies
 node_modules/
-web/dist/
+internal/web/dist/*
+!internal/web/dist/.gitkeep
 bin/
 
 # runtime files that never belong in git

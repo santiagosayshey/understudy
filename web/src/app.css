@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* Design tokens. Everything visual reads from these; components never hard-code a colour. */
+@theme {
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--color-background: oklch(0.13 0.005 260);
+	--color-surface: oklch(0.18 0.006 260);
+	--color-border: oklch(0.28 0.008 260);
+	--color-foreground: oklch(0.95 0.005 260);
+	--color-muted: oklch(0.68 0.01 260);
+	--color-accent: oklch(0.82 0.16 80);
+	--color-accent-foreground: oklch(0.15 0.02 80);
+	--color-danger: oklch(0.65 0.2 25);
+	--radius: 0.5rem;
+}
+
+@layer base {
+	html {
+		font-family: var(--font-sans);
+		color-scheme: dark;
+	}
+	body {
+		@apply bg-background text-foreground antialiased;
+	}
+}

@@ -194,7 +194,7 @@ Serves the embedded page and a JSON API under `/api` on the listen address. It l
 
 Saving writes the configuration and the portraits directory and nothing else. There is no endpoint that resolves or clears; the page shows a drift indicator from the state file and says to run the resolving job.
 
-The page is a Svelte app: Vite, TypeScript, Tailwind, shadcn-svelte components. It is built to static files and embedded in the binary, so Node exists only at build time. The crop editor is a fixed square canvas with pan and zoom, the crop clamped inside the image, a circle overlay for the round avatar, and live previews at the sizes Plex requests. The crop box goes to the server in source pixels and the server cuts the original.
+The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own components built on a small set of design tokens. It is built to static files and embedded in the binary, so Node exists only at build time. The crop editor is a fixed square canvas with pan and zoom, the crop clamped inside the image, a circle overlay for the round avatar, and live previews at the sizes Plex requests. The crop box goes to the server in source pixels and the server cuts the original.
 
 ### Certificates
 
@@ -304,7 +304,7 @@ internal/proxy/      TLS listener, map, passthrough, centre-crop
 internal/crop/       decode, crop, square, encode
 internal/api/        HTTP handlers for the editor
 internal/certs/      certificate generation
-web/                 Svelte app: Vite, TypeScript, Tailwind, shadcn-svelte
+web/                 Svelte app: Vite, TypeScript, Tailwind; the ui library under src/lib/ui
 embed.go             embeds web/dist
 contrib/             the Plex container hook, compose examples
 docs/                this document and the user docs
