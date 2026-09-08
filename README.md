@@ -103,7 +103,7 @@ Plex needs two things: to resolve the CDN's hostname to the proxy, and to trust 
       - /path/to/understudy/plex-init:/custom-cont-init.d:ro
 ```
 
-The script goes in `plex-init/10-understudy-ca.sh`, made executable:
+Save the script as `plex-init/10-understudy-ca.sh` and make it executable:
 
 ```bash
 #!/bin/bash
@@ -111,7 +111,7 @@ cp /understudy/ca.crt /usr/local/share/ca-certificates/understudy.crt
 update-ca-certificates
 ```
 
-Recreate the Plex container. If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
+If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
 
 ### Choose portraits
 
