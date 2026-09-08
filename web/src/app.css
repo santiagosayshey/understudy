@@ -82,4 +82,8 @@
 	body {
 		@apply bg-bg text-fg antialiased;
 	}
+	/* Thin scrollbars in the theme's colours, on the page and every scroll container. */
+	* {
+		@apply scrollbar-thumb-border-strong scrollbar-thin scrollbar-track-transparent;
+	}
 }

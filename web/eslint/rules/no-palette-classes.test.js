@@ -31,6 +31,10 @@ test('no-palette-classes', () => {
 				errors: [{ messageId: 'palette' }],
 			},
 			{ code: '<div style="color: #333">no</div>', errors: [{ messageId: 'style' }] },
+			{
+				code: '<div class="scrollbar-thumb-neutral-400">no</div>',
+				errors: [{ messageId: 'palette' }],
+			},
 		],
 	});
 });

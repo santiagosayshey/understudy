@@ -4,7 +4,7 @@
 const palettes =
 	'slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white';
 const prefixes =
-	'bg|text|border|ring|outline|fill|stroke|from|to|via|divide|placeholder|shadow|accent|caret|decoration';
+	'bg|text|border|ring|outline|fill|stroke|from|to|via|divide|placeholder|shadow|accent|caret|decoration|scrollbar-thumb|scrollbar-track';
 const palette = new RegExp(
 	`(?:^|[\\s:!])(?:${prefixes})-(?:${palettes})(?:-\\d{2,3})?(?:/\\d{1,3})?(?=$|[\\s"'])`
 );
