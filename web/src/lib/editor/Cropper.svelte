@@ -73,15 +73,26 @@
 		ctx.stroke();
 		const b = box();
 		crop = { x: Math.round(b.x), y: Math.round(b.y), size: Math.round(b.size) };
-		for (const c of [small, tiny]) {
+		// The previews are drawn at the display's pixel ratio so they are as
+		// sharp as Plex's own avatars, which come from a 360 px image.
+		const dpr = window.devicePixelRatio || 1;
+		for (const [c, css] of [
+			[small, 120],
+			[tiny, 56],
+		] as const) {
 			if (!c) continue;
-			const n = c.width;
+			const n = Math.round(css * dpr);
+			if (c.width !== n) {
+				c.width = n;
+				c.height = n;
+			}
 			const pc = c.getContext('2d')!;
 			pc.clearRect(0, 0, n, n);
 			pc.save();
 			pc.beginPath();
 			pc.arc(n / 2, n / 2, n / 2, 0, Math.PI * 2);
 			pc.clip();
+			pc.imageSmoothingQuality = 'high';
 			pc.drawImage(img, b.x, b.y, b.size, b.size, 0, 0, n, n);
 			pc.restore();
 		}
@@ -148,14 +159,8 @@
 	<div class="flex flex-col gap-3 text-sm sm:w-48">
 		<p class="text-fg-muted">How Plex will show it</p>
 		<div class="flex items-end gap-4">
-			<canvas
-				bind:this={small}
-				width="120"
-				height="120"
-				class="bg-surface-raised rounded-full"
-			></canvas>
-			<canvas bind:this={tiny} width="56" height="56" class="bg-surface-raised rounded-full"
-			></canvas>
+			<canvas bind:this={small} class="bg-surface-raised size-[120px] rounded-full"></canvas>
+			<canvas bind:this={tiny} class="bg-surface-raised size-14 rounded-full"></canvas>
 		</div>
 		<p class="text-fg-muted">
 			Drag to move, wheel or slider to zoom. The circle is what the round avatar reveals; the
