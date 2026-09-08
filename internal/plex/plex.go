@@ -194,6 +194,47 @@ func (c *Client) Roles(ctx context.Context, ratingKey string) ([]Role, error) {
 	return it.Roles, err
 }
 
+// Person is one hit from Plex's people search, which covers everyone in a
+// cast list. The actor listing only holds people billed in the top three of
+// some title, so this is how the rest are found.
+type Person struct {
+	Key    string
+	Name   string
+	TagKey string
+	Thumb  string
+}
+
+// People searches Plex for people by name.
+func (c *Client) People(ctx context.Context, query string) ([]Person, error) {
+	var out struct {
+		MediaContainer struct {
+			SearchResult []struct {
+				Directory struct {
+					ID     str    `json:"id"`
+					Tag    string `json:"tag"`
+					TagKey string `json:"tagKey"`
+					Thumb  string `json:"thumb"`
+				} `json:"Directory"`
+			} `json:"SearchResult"`
+		}
+	}
+	if err := c.get(ctx, "/library/search?searchTypes=people&limit=50&query="+url.QueryEscape(query), &out); err != nil {
+		return nil, err
+	}
+	var people []Person
+	seen := map[string]bool{}
+	for _, r := range out.MediaContainer.SearchResult {
+		d := r.Directory
+		key := string(d.ID)
+		if key == "" || d.Tag == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		people = append(people, Person{Key: key, Name: d.Tag, TagKey: d.TagKey, Thumb: d.Thumb})
+	}
+	return people, nil
+}
+
 // Thumb returns a title's poster image as Plex stores it.
 func (c *Client) Thumb(ctx context.Context, ratingKey string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/library/metadata/"+url.PathEscape(ratingKey)+"/thumb", nil)

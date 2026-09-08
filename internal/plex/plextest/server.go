@@ -20,6 +20,9 @@ type Person struct {
 	Thumb  string
 	Titles []string
 	Roles  map[string]string // character by rating key, when known
+	// Unlisted people are in cast lists but not the actor listing, the way
+	// the real server omits anyone never billed in the top three.
+	Unlisted bool
 }
 
 // Title is one movie or show.
@@ -71,7 +74,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		section := strings.TrimSuffix(strings.TrimPrefix(path, "/library/sections/"), "/actor")
 		var dirs []map[string]any
 		for _, p := range s.lib.People {
-			if !s.inSection(p, section) {
+			if p.Unlisted || !s.inSection(p, section) {
 				continue
 			}
 			thumb := p.Thumb
@@ -96,6 +99,17 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		writeContainer(w, "Metadata", meta)
+	case path == "/library/search":
+		q := strings.ToLower(r.URL.Query().Get("query"))
+		var results []map[string]any
+		for _, p := range s.lib.People {
+			if q == "" || !strings.Contains(strings.ToLower(p.Name), q) {
+				continue
+			}
+			id, _ := json.Number(p.Key).Int64()
+			results = append(results, map[string]any{"Directory": map[string]any{"type": "tag", "id": id, "tag": p.Name, "tagKey": p.TagKey, "thumb": p.Thumb}})
+		}
+		writeContainer(w, "SearchResult", results)
 	case strings.HasPrefix(path, "/library/metadata/"):
 		rk := strings.TrimPrefix(path, "/library/metadata/")
 		title, ok := s.title(rk)
@@ -167,6 +181,7 @@ func Sample() Library {
 			{Key: "6755", Name: "Jacob Elordi", TagKey: "5d7769e1fb0d55001f533217", Thumb: "https://metadata-static.plex.tv/d/people/df243843965949c6b502cd1c0c056648.jpg", Titles: []string{"19335", "102"}},
 			{Key: "300", Name: "Anthony Edwards", TagKey: "5d776825880197001ec9003b", Thumb: "https://metadata-static.plex.tv/a/people/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg", Titles: []string{"100"}},
 			{Key: "301", Name: "Anthony Edwards", TagKey: "5d776825880197001ec901a4", Thumb: "https://metadata-static.plex.tv/b/people/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg", Titles: []string{"101"}},
+			{Key: "24899", Name: "Tramell Tillman", TagKey: "5d776825880197001ec9aaaa", Thumb: "https://metadata-static.plex.tv/7/people/77777777777777777777777777777777.jpg", Titles: []string{"12583"}, Roles: map[string]string{"12583": "Bill"}, Unlisted: true},
 			{Key: "400", Name: "Michael Burnell", TagKey: "5d7768cc7a53e9001e74c2d4", Thumb: "", Titles: []string{"19335"}},
 		},
 	}

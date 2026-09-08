@@ -253,7 +253,15 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, _ := s.entries()
 	stateFile, _ := state.Load(s.StateDir)
-	matches, total := s.Listing.Search(r.URL.Query().Get("q"), 60)
+	q := r.URL.Query().Get("q")
+	matches, total := s.Listing.Search(q, 60)
+	if len(matches) == 0 && len([]rune(strings.TrimSpace(q))) >= 3 {
+		// Plex's listing omits anyone never billed in the top three; its
+		// search does not.
+		if found, err := s.Listing.People(r.Context(), q); err == nil {
+			matches, total = found, len(found)
+		}
+	}
 	out := make([]Marked, 0, len(matches))
 	for _, a := range matches {
 		out = append(out, s.mark(a, "", entries, stateFile))
@@ -283,11 +291,10 @@ func (s *Server) title(w http.ResponseWriter, r *http.Request) {
 		Marked
 		TagKey string `json:"tagKey,omitempty"`
 		Role   string `json:"role,omitempty"`
-		Listed bool   `json:"listed"`
 	}
 	out := make([]member, 0, len(cast))
 	for _, c := range cast {
-		out = append(out, member{Marked: s.mark(c.Actor, c.TagKey, entries, stateFile), TagKey: c.TagKey, Role: c.Role, Listed: c.Listed})
+		out = append(out, member{Marked: s.mark(c.Actor, c.TagKey, entries, stateFile), TagKey: c.TagKey, Role: c.Role})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"title": info, "cast": out})
 }

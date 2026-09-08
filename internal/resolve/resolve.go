@@ -61,7 +61,9 @@ type candidate struct {
 }
 
 // Resolve loads the actor listings once and resolves every entry against
-// them. The listings are the only place a current portrait path exists.
+// them. A name the listings do not have is looked up with Plex's people
+// search, since the listings only hold people billed in the top three of
+// some title.
 func (r *Resolver) Resolve(ctx context.Context, entries []config.Entry) ([]Outcome, error) {
 	sections, err := r.Plex.Sections(ctx)
 	if err != nil {
@@ -96,6 +98,23 @@ func (r *Resolver) Resolve(ctx context.Context, entries []config.Entry) ([]Outco
 		o := Outcome{Entry: e}
 		outcomes[i] = o
 		cands := byName[norm(e.Name)]
+		if len(cands) == 0 {
+			found, err := r.Plex.People(ctx, e.Name)
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range found {
+				if norm(p.Name) != norm(e.Name) {
+					continue
+				}
+				c, ok := byKey[p.Key]
+				if !ok {
+					c = &candidate{Actor: plex.Actor{Key: p.Key, Name: p.Name, Thumb: p.Thumb}, tagKey: p.TagKey, loaded: true}
+					byKey[p.Key] = c
+				}
+				cands = append(cands, c)
+			}
+		}
 		var chosen *candidate
 		switch {
 		case len(cands) == 0:

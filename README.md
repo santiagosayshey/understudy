@@ -146,7 +146,7 @@ people:
     image: anthony-edwards.jpg
 ```
 
-- Names match Plex's actor listing, ignoring case.
+- Names match Plex's spelling, ignoring case.
 - `tagKey` is Plex's id for a person and tells apart two who share a name. The editor's Info dialog shows it.
 - Images are JPEG or PNG. Square is what Plex's round avatars expect; anything else is centre-cropped.
 - `understudy validate` checks the file against Plex without changing anything.

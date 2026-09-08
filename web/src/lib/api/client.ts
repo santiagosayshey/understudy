@@ -61,7 +61,7 @@ export type Change = {
 
 export type ActorPage = { actor: Detail; override?: Override; staged?: Change };
 
-export type CastMember = Actor & { tagKey?: string; role?: string; listed: boolean };
+export type CastMember = Actor & { tagKey?: string; role?: string };
 
 export type TitlePage = {
 	title: { ratingKey: string; name: string; year?: number; type: string; library: string };

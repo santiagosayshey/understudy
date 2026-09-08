@@ -1,8 +1,7 @@
 <script lang="ts">
 	// A movie or show: its poster, and its whole cast as a grid of portraits
 	// that each open the actor's page, so several people from one title can
-	// be fixed without searching for each. Cast Plex leaves out of its actor
-	// listing, those without a photo, are shown but have no page to open.
+	// be fixed without searching for each.
 	import { ArrowLeft } from '@lucide/svelte';
 	import {
 		api,
@@ -93,21 +92,13 @@
 				<ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
 					{#each page.cast as c, i (c.key + i)}
 						<li>
-							{#if c.listed}
-								<a
-									href="/actors/{c.key}"
-									use:link
-									class="hover:bg-surface-hover flex flex-col items-center gap-1.5 rounded-lg p-2 text-center transition-colors"
-								>
-									{@render member(c)}
-								</a>
-							{:else}
-								<div
-									class="flex flex-col items-center gap-1.5 p-2 text-center opacity-60"
-								>
-									{@render member(c)}
-								</div>
-							{/if}
+							<a
+								href="/actors/{c.key}"
+								use:link
+								class="hover:bg-surface-hover flex flex-col items-center gap-1.5 rounded-lg p-2 text-center transition-colors"
+							>
+								{@render member(c)}
+							</a>
 						</li>
 					{/each}
 				</ul>

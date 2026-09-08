@@ -22,6 +22,7 @@ func TestResolve(t *testing.T) {
 		{Name: "Michael Burnell", Image: "f.jpg"},                                     // no photo
 		{Name: "Cailee Spaeny", Image: "g.jpg"},                                       // duplicate of entry 1
 		{Name: "Nobody Atall", Image: "h.jpg"},                                        // nothing near
+		{Name: "tramell tillman", Image: "i.jpg"},                                     // not in the listing, found by search
 	}
 	out, err := r.Resolve(context.Background(), entries)
 	if err != nil {
@@ -40,6 +41,7 @@ func TestResolve(t *testing.T) {
 		{NoPhoto, "no portrait", ""},
 		{Duplicate, "same person as entry 1", ""},
 		{Unknown, "no actor with that name", ""},
+		{"", "", "/7/people/77777777777777777777777777777777.jpg"},
 	}
 	for i, w := range want {
 		o := out[i]
@@ -59,7 +61,10 @@ func TestResolve(t *testing.T) {
 	if out[7].Problem.Detail != "no actor with that name" {
 		t.Errorf("no near names should be reported for %q: %s", entries[7].Name, out[7].Problem.Detail)
 	}
-	if srv.Requests > 20 {
+	if out[8].Person.TagKey != "5d776825880197001ec9aaaa" || out[8].Person.Name != "Tramell Tillman" {
+		t.Errorf("a person found by search should carry Plex's id and spelling: %+v", out[8].Person)
+	}
+	if srv.Requests > 24 {
 		t.Errorf("too many requests for a small library: %d", srv.Requests)
 	}
 }
