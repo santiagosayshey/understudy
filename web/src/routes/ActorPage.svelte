@@ -112,79 +112,75 @@
 			>
 				<Avatar src={effective} alt="" size="xl" />
 			</div>
-			<div class="flex min-w-0 flex-1 gap-4">
-				<div class="min-w-0 flex-1">
-					<div class="flex items-start justify-between gap-4">
-						<div class="flex items-center gap-1">
-							<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
-							<Button
-								variant="ghost"
-								size="icon"
-								label="Details"
-								onclick={() => (details = true)}
-							>
-								<Info class="size-4" aria-hidden="true" />
-							</Button>
-						</div>
+			<div class="min-w-0 flex-1">
+				<div class="flex items-start justify-between gap-4">
+					<div class="flex items-center gap-1">
+						<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
+						<Button
+							variant="ghost"
+							size="icon"
+							label="Details"
+							onclick={() => (details = true)}
+						>
+							<Info class="size-4" aria-hidden="true" />
+						</Button>
 					</div>
-					<div class="mt-3 flex flex-wrap gap-2">
-						{#if staged}
-							<Badge tone="warning"
-								>{staged.kind === 'set'
-									? 'new portrait staged'
-									: 'removal staged'}</Badge
-							>
-						{:else if override?.drift}
-							<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
-						{:else if override}
-							<Badge tone="success">override in place</Badge>
-						{/if}
-						{#if !actor.path}
-							<Badge>no photo in Plex, nothing to override</Badge>
-						{/if}
-						{#if override?.problem}
-							<Badge tone="danger">{override.problem.detail}</Badge>
-						{/if}
-					</div>
-					{#if actor.path}
-						<div class="mt-5 flex flex-wrap gap-2">
-							<FileInput
-								onfile={choose}
-								class="bg-accent text-accent-fg hover:bg-accent-hover inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors"
-							>
-								<Upload class="size-4" aria-hidden="true" />
-								{override || staged?.kind === 'set'
-									? 'Replace portrait'
-									: 'Choose portrait'}
-							</FileInput>
-							{#if staged}
-								<Button variant="secondary" onclick={undo}>Undo</Button>
-							{:else if override}
-								<Button variant="danger" onclick={remove}>Remove override</Button>
-							{/if}
-						</div>
-						<p class="text-fg-muted mt-2 text-xs">Or drop an image on the portrait.</p>
-					{/if}
-				</div>
-				<div class="flex shrink-0 flex-col items-end justify-between">
 					<a
 						href="/"
 						use:link
-						class="text-fg-muted hover:text-fg mt-2 inline-flex items-center gap-1.5 text-sm transition-colors"
+						class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
 					>
 						<ArrowLeft class="size-4" aria-hidden="true" />
 						Search
 					</a>
-					{#if showsPlex}
-						<Tooltip text="Plex's portrait">
-							<Avatar
-								src={api.cdnImage(actor.path!, 96)}
-								alt="Plex's portrait"
-								size="md"
-							/>
-						</Tooltip>
+				</div>
+				<div class="mt-3 flex flex-wrap gap-2">
+					{#if staged}
+						<Badge tone="warning"
+							>{staged.kind === 'set'
+								? 'new portrait staged'
+								: 'removal staged'}</Badge
+						>
+					{:else if override?.drift}
+						<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
+					{:else if override}
+						<Badge tone="success">override in place</Badge>
+					{/if}
+					{#if !actor.path}
+						<Badge>no photo in Plex, nothing to override</Badge>
+					{/if}
+					{#if override?.problem}
+						<Badge tone="danger">{override.problem.detail}</Badge>
 					{/if}
 				</div>
+				{#if actor.path}
+					<div class="mt-5 flex flex-wrap items-center gap-2">
+						<FileInput
+							onfile={choose}
+							class="bg-accent text-accent-fg hover:bg-accent-hover inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors"
+						>
+							<Upload class="size-4" aria-hidden="true" />
+							{override || staged?.kind === 'set'
+								? 'Replace portrait'
+								: 'Choose portrait'}
+						</FileInput>
+						{#if staged}
+							<Button variant="secondary" onclick={undo}>Undo</Button>
+						{:else if override}
+							<Button variant="danger" onclick={remove}>Remove override</Button>
+						{/if}
+						{#if showsPlex}
+							<Tooltip text="Plex's portrait">
+								<Avatar
+									src={api.cdnImage(actor.path!, 96)}
+									alt="Plex's portrait"
+									size="md"
+								/>
+							</Tooltip>
+						{/if}
+					</div>
+					<p class="text-fg-muted mt-2 text-xs">Or drop an image on the portrait.</p>
+				{/if}
 			</div>
 		</div>
 
