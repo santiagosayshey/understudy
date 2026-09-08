@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
 	import { api, ApiError, type ActorPage } from '$lib/api/client';
-	import { discard, stage } from '$lib/changes/changes.svelte';
+	import { discard, stage, pending } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
@@ -36,9 +36,14 @@
 			);
 	}
 	$effect(() => {
+		void key;
 		page = null;
 		error = null;
 		load();
+	});
+	// after an apply, reload in place so the page shows the written state
+	$effect(() => {
+		if (pending.applied > 0) load();
 	});
 
 	const actor = $derived(page?.actor);
