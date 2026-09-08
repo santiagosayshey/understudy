@@ -19,6 +19,15 @@ import (
 	"github.com/santiagosayshey/understudy/internal/state"
 )
 
+// retry is how soon a failed run is tried again in interval mode. A deploy
+// that recreates Plex and sync together makes the first run lose the race.
+const retry = time.Minute
+
+// settle is the pause between writing the state and clearing Plex's cache,
+// so the proxy is serving the new state before Plex is made to fetch again.
+// The proxy polls the state file every two seconds.
+var settle = 10 * time.Second
+
 // runSync resolves the configuration against Plex and writes the state file
 // the proxy serves from. It runs once and exits, or, given an interval, on
 // start and then on that interval until stopped.
@@ -47,14 +56,24 @@ func runSync(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	for {
-		syncOnce(ctx, c, *stateDir, *cacheDir)
-		fmt.Printf("sync: next run in %s\n", interval)
+		wait := nextWait(syncOnce(ctx, c, *stateDir, *cacheDir), interval)
+		fmt.Printf("sync: next run in %s\n", wait)
 		select {
 		case <-ctx.Done():
 			return exitClean
-		case <-time.After(interval):
+		case <-time.After(wait):
 		}
 	}
+}
+
+// nextWait is how long the loop sleeps after a run. A run that could not
+// complete, because Plex was unreachable or the configuration is broken, is
+// retried soon; a completed one waits the interval.
+func nextWait(status int, interval time.Duration) time.Duration {
+	if status == exitFailed && retry < interval {
+		return retry
+	}
+	return interval
 }
 
 // syncOnce is one run. It validates first and stops on any error, so a
@@ -90,18 +109,30 @@ func syncOnce(ctx context.Context, c common, stateDir, cacheDir string) int {
 		return exitFailed
 	}
 	next, changes := state.Apply(prev, outcomes, hashes, time.Now())
+	if err := next.Save(stateDir); err != nil {
+		fmt.Fprintln(os.Stderr, "sync:", err)
+		return exitFailed
+	}
 	var cleared int
 	if changes.Any() && cacheDir != "" {
+		// The state is on disk; give the proxy time to load it before Plex
+		// is made to fetch again, or a request in the gap re-caches the
+		// old picture.
+		select {
+		case <-ctx.Done():
+			return exitFailed
+		case <-time.After(settle):
+		}
 		n, err := plex.ClearCache(cacheDir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "sync:", err)
 			return exitFailed
 		}
 		cleared, next.CacheCleared = n, true
-	}
-	if err := next.Save(stateDir); err != nil {
-		fmt.Fprintln(os.Stderr, "sync:", err)
-		return exitFailed
+		if err := next.Save(stateDir); err != nil {
+			fmt.Fprintln(os.Stderr, "sync:", err)
+			return exitFailed
+		}
 	}
 	status := printReport(os.Stdout, cfg, local, outcomes)
 	for _, d := range changes.Drifted {

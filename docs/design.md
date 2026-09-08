@@ -97,11 +97,11 @@ An entry that cannot be resolved on a run keeps its last known state and is repo
 
 When Plex has changed an actor's portrait URL since the last run, the old path and the time are recorded in that entry's history. The new path becomes current. The overriding job follows the actor to the new URL. The image file is not touched and nothing else needs to happen. Until a run discovers the change, a drifted actor shows Plex's own picture, because the overriding job is still matching the old path.
 
-The cache clear deletes the contents of Plex's photo cache directory, and refuses any directory not named `PhotoTranscoder` so a mistyped setting cannot empty something else. It happens at most once per run and only when something changed. It is cheap in practice because most of that cache is rebuilt locally from images Plex already has. Only remote images such as portraits are fetched again, and only when next viewed. Clients still hold their own copy for up to three days ([A.3](#a3-client-cache)).
+The cache clear deletes the contents of Plex's photo cache directory, and refuses any directory not named `PhotoTranscoder` so a mistyped setting cannot empty something else. It happens at most once per run and only when something changed, after the state is written and a ten second pause for the proxy to load it, so nothing Plex fetches in between is cached again. It is cheap in practice because most of that cache is rebuilt locally from images Plex already has. Only remote images such as portraits are fetched again, and only when next viewed. Clients still hold their own copy for up to three days ([A.3](#a3-client-cache)).
 
 ### Scheduling and the report
 
-The job runs once and exits, or, given an interval, on start and then on that interval until stopped. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that finds nothing changed is cheap and touches nothing.
+The job runs once and exits, or, given an interval, on start and then on that interval until stopped. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that could not complete, because Plex was unreachable, is retried after a minute rather than the interval, since a deploy that recreates Plex and the job together makes the first run lose the race. A run that finds nothing changed is cheap and touches nothing.
 
 The report lists every entry with its outcome, each drift as the old and new path, every problem, and whether the cache was cleared. The exit status uses the same three-way split as validation: clean, completed with problems, could not complete.
 
