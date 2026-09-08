@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Check, Copy, Info, Upload } from '@lucide/svelte';
 	import { api, ApiError, type ActorPage } from '$lib/api/client';
 	import { discard, stage } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
-	import Card from '$lib/ui/card/Card.svelte';
 	import Dialog from '$lib/ui/dialog/Dialog.svelte';
-	import FileButton from '$lib/ui/file-button/FileButton.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
+	import FileInput from '$lib/ui/file-input/FileInput.svelte';
 	import { link } from '$lib/router/router.svelte';
 	import PortraitDialog from '$lib/editor/PortraitDialog.svelte';
 
@@ -53,8 +52,8 @@
 		if (override) return api.portraitImage(override.image);
 		return actor.path ? api.cdnImage(actor.path, 400) : undefined;
 	});
-	const showsPlex = $derived(
-		!!actor?.path && (!!override || staged?.kind === 'set') && staged?.kind !== 'remove'
+	const hasOverride = $derived(
+		staged?.kind === 'set' || (!!override && staged?.kind !== 'remove')
 	);
 	const libraries = $derived.by(() => {
 		const groups: [string, NonNullable<typeof actor>['titles']][] = [];
@@ -98,38 +97,8 @@
 		<div class="text-fg-muted flex items-center gap-3"><Spinner /> Loading from Plex…</div>
 	{:else}
 		<div class="flex items-start justify-between gap-4">
-			<div class="min-w-0">
-				<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
-			</div>
-			<a
-				href="/"
-				use:link
-				class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
-			>
-				<ArrowLeft class="size-4" aria-hidden="true" />
-				Search
-			</a>
-		</div>
-		<div class="mt-3 flex flex-wrap gap-2">
-			{#if staged}
-				<Badge tone="warning"
-					>{staged.kind === 'set' ? 'new portrait staged' : 'removal staged'}</Badge
-				>
-			{:else if override?.drift}
-				<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
-			{:else if override}
-				<Badge tone="success">override in place</Badge>
-			{/if}
-			{#if !actor.path}
-				<Badge>no photo in Plex, nothing to override</Badge>
-			{/if}
-			{#if override?.problem}
-				<Badge tone="danger">{override.problem.detail}</Badge>
-			{/if}
-		</div>
-
-		<Card class="relative mt-6">
-			<div class="absolute top-3 right-3">
+			<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
+			<div class="mt-1 flex shrink-0 items-center gap-1">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -138,46 +107,95 @@
 				>
 					<Info class="size-4" aria-hidden="true" />
 				</Button>
+				<a
+					href="/"
+					use:link
+					class="text-fg-muted hover:text-fg inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors"
+				>
+					<ArrowLeft class="size-4" aria-hidden="true" />
+					Search
+				</a>
 			</div>
-			<div
-				class="flex items-end gap-4 rounded-full transition-shadow {over
-					? 'ring-ring/40 ring-4'
-					: ''}"
-				role="presentation"
-				ondragover={(e) => {
-					e.preventDefault();
-					over = true;
-				}}
-				ondragleave={() => (over = false)}
-				{ondrop}
-			>
-				<Avatar src={effective} alt="" size="xl" />
-				{#if showsPlex}
-					<div class="flex flex-col items-center gap-1 pb-1">
-						<Avatar src={api.cdnImage(actor.path!, 96)} alt="" size="md" />
-						<span class="text-fg-muted text-xs">Plex's</span>
-					</div>
+		</div>
+		{#if override?.drift || override?.problem || !actor.path}
+			<div class="mt-2 flex flex-wrap gap-2">
+				{#if override?.drift}
+					<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
+				{/if}
+				{#if override?.problem}
+					<Badge tone="danger">{override.problem.detail}</Badge>
+				{/if}
+				{#if !actor.path}
+					<Badge>no photo in Plex, nothing to override</Badge>
 				{/if}
 			</div>
+		{/if}
+
+		<div class="mt-6 flex items-center gap-6">
+			<figure class="flex flex-col items-center gap-2">
+				<Avatar
+					src={actor.path ? api.cdnImage(actor.path, 400) : undefined}
+					alt=""
+					size="xl"
+				/>
+				<figcaption class="text-fg-muted text-xs">Plex</figcaption>
+			</figure>
 			{#if actor.path}
-				<div class="mt-5 flex flex-wrap items-center justify-end gap-2">
-					<span class="text-fg-muted mr-auto text-xs"
-						>Or drop an image on the portrait.</span
-					>
-					{#if staged}
-						<Button variant="secondary" onclick={undo}>Undo</Button>
-					{:else if override}
-						<Button variant="danger" onclick={remove}>Remove override</Button>
+				<ArrowRight class="text-fg-muted size-5 shrink-0" aria-hidden="true" />
+				<div
+					class="flex flex-col items-center gap-2"
+					role="presentation"
+					ondragover={(e) => {
+						e.preventDefault();
+						over = true;
+					}}
+					ondragleave={() => (over = false)}
+					{ondrop}
+				>
+					{#if hasOverride}
+						<div
+							class="rounded-full transition-shadow {over
+								? 'ring-ring/40 ring-4'
+								: ''}"
+						>
+							<Avatar src={effective} alt="" size="xl" />
+						</div>
+						<p class="text-fg-muted text-xs">
+							{staged?.kind === 'set' ? 'staged' : 'override'}
+						</p>
+						<div class="flex gap-1">
+							{#if staged}
+								<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
+							{:else}
+								<FileInput
+									onfile={choose}
+									class="text-fg hover:bg-surface-hover inline-flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors"
+								>
+									Replace
+								</FileInput>
+								<Button variant="ghost" size="sm" onclick={remove}>Remove</Button>
+							{/if}
+						</div>
+					{:else}
+						<FileInput
+							onfile={choose}
+							class="text-fg-muted hover:border-border-strong hover:text-fg flex size-40 flex-col items-center justify-center gap-2 rounded-full border-2 border-dashed text-xs transition-colors {over
+								? 'border-ring text-fg'
+								: 'border-border'}"
+						>
+							<Upload class="size-5" aria-hidden="true" />
+							<span>drop or choose</span>
+						</FileInput>
+						{#if staged?.kind === 'remove'}
+							<p class="text-fg-muted text-xs">removal staged</p>
+							<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
+						{:else}
+							<p class="text-fg-muted text-xs">no override</p>
+						{/if}
 					{/if}
-					<FileButton onfile={choose}>
-						<Upload class="size-4" aria-hidden="true" />
-						{override || staged?.kind === 'set'
-							? 'Replace portrait'
-							: 'Choose portrait'}
-					</FileButton>
 				</div>
 			{/if}
-		</Card>
+		</div>
 
 		{#each libraries as [library, titles] (library)}
 			<section class="mt-8">
