@@ -357,7 +357,7 @@ A person's URL is a content hash that changes when their photo changes upstream.
 
 ### A.5 Which clients ask the server
 
-Plex Web and the Android app ask the server for cast portraits, so the override reaches them. The iOS app takes the CDN address from the item's metadata and fetches it itself, so nothing on the server can change what it shows. The actor's own page, in every client, uses a second and larger picture of the person from a different URL, which the resolving job does not know.
+Plex Web, Plex for Windows, Plex HTPC, and the Apple TV and LG TV apps ask the server for cast portraits, so the override reaches them. The iOS app takes the CDN address from the item's metadata and fetches it itself, so nothing on the server can change what it shows. The actor's own page, in every client, uses a second and larger picture of the person from a different URL, which the resolving job does not know.
 
 ## Appendix B: Measurements
 

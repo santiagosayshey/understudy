@@ -35,7 +35,10 @@ Understudy changes a portrait wherever Plex's server fetches it. A client that l
 | Client | Cast on a film or show |
 | --- | --- |
 | Plex Web | replaced |
-| Android | replaced |
+| Plex for Windows | replaced |
+| Plex HTPC | replaced |
+| Apple TV | replaced |
+| LG TV | replaced |
 | iOS | not replaced; the app fetches the CDN itself |
 
 The actor's own page uses a second, larger picture of the person that sync does not know about yet, so it shows Plex's picture in every client.
