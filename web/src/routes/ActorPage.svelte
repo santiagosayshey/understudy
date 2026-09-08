@@ -91,7 +91,6 @@
 		<div class="flex items-start justify-between gap-4">
 			<div class="min-w-0">
 				<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
-				<p class="text-fg-muted mt-1">{actor.libraries.join(', ')}</p>
 			</div>
 			<a
 				href="/"
