@@ -5,6 +5,7 @@
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
+	import Card from '$lib/ui/card/Card.svelte';
 	import FileButton from '$lib/ui/file-button/FileButton.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
 	import { link } from '$lib/router/router.svelte';
@@ -87,9 +88,41 @@
 	{:else if !actor}
 		<div class="text-fg-muted flex items-center gap-3"><Spinner /> Loading from Plex…</div>
 	{:else}
-		<div class="flex flex-col gap-6 sm:flex-row sm:items-start">
+		<div class="flex items-start justify-between gap-4">
+			<div class="min-w-0">
+				<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
+				<p class="text-fg-muted mt-1">{actor.libraries.join(', ')}</p>
+			</div>
+			<a
+				href="/"
+				use:link
+				class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
+			>
+				<ArrowLeft class="size-4" aria-hidden="true" />
+				Search
+			</a>
+		</div>
+		<div class="mt-3 flex flex-wrap gap-2">
+			{#if staged}
+				<Badge tone="warning"
+					>{staged.kind === 'set' ? 'new portrait staged' : 'removal staged'}</Badge
+				>
+			{:else if override?.drift}
+				<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
+			{:else if override}
+				<Badge tone="success">override in place</Badge>
+			{/if}
+			{#if !actor.path}
+				<Badge>no photo in Plex, nothing to override</Badge>
+			{/if}
+			{#if override?.problem}
+				<Badge tone="danger">{override.problem.detail}</Badge>
+			{/if}
+		</div>
+
+		<Card class="mt-6">
 			<div
-				class="flex shrink-0 flex-col items-center gap-3 rounded-full transition-shadow {over
+				class="flex items-end gap-4 rounded-full transition-shadow {over
 					? 'ring-ring/40 ring-4'
 					: ''}"
 				role="presentation"
@@ -102,74 +135,45 @@
 			>
 				<Avatar src={effective} alt="" size="xl" />
 				{#if showsPlex}
-					<div class="flex flex-col items-center gap-1">
-						<Avatar src={api.cdnImage(actor.path!, 96)} alt="" size="sm" />
+					<div class="flex flex-col items-center gap-1 pb-1">
+						<Avatar src={api.cdnImage(actor.path!, 96)} alt="" size="md" />
 						<span class="text-fg-muted text-xs">Plex's</span>
 					</div>
 				{/if}
 			</div>
-			<div class="min-w-0 flex-1">
-				<div class="flex items-start justify-between gap-4">
-					<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
-					<a
-						href="/"
-						use:link
-						class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
-					>
-						<ArrowLeft class="size-4" aria-hidden="true" />
-						Search
-					</a>
-				</div>
-				<p class="text-fg-muted mt-1">{actor.libraries.join(', ')}</p>
-				<dl
-					class="text-fg-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-xs"
-				>
-					{#if actor.tagKey}
-						<dt>person</dt>
-						<dd class="text-fg">{actor.tagKey}</dd>
-					{/if}
-					{#if actor.path}
-						<dt>path</dt>
-						<dd class="text-fg truncate">{actor.path}</dd>
-					{/if}
-				</dl>
-				<div class="mt-3 flex flex-wrap gap-2">
-					{#if staged}
-						<Badge tone="warning"
-							>{staged.kind === 'set'
-								? 'new portrait staged'
-								: 'removal staged'}</Badge
-						>
-					{:else if override?.drift}
-						<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
-					{:else if override}
-						<Badge tone="success">override in place</Badge>
-					{/if}
-					{#if !actor.path}
-						<Badge>no photo in Plex, nothing to override</Badge>
-					{/if}
-					{#if override?.problem}
-						<Badge tone="danger">{override.problem.detail}</Badge>
-					{/if}
-				</div>
-				{#if actor.path}
-					<div class="mt-5 flex flex-wrap gap-2">
-						<FileButton onfile={choose}>
-							<Upload class="size-4" aria-hidden="true" />
-							{override || staged?.kind === 'set'
-								? 'Replace portrait'
-								: 'Choose portrait'}
-						</FileButton>
-						{#if staged}
-							<Button variant="secondary" onclick={undo}>Undo</Button>
-						{:else if override}
-							<Button variant="danger" onclick={remove}>Remove override</Button>
-						{/if}
+			<dl class="mt-5 space-y-3 font-mono text-xs">
+				{#if actor.tagKey}
+					<div>
+						<dt class="text-fg-muted">person</dt>
+						<dd class="text-fg mt-0.5">{actor.tagKey}</dd>
 					</div>
-					<p class="text-fg-muted mt-2 text-xs">Or drop an image on the portrait.</p>
 				{/if}
-			</div>
-		</div>
+				{#if actor.path}
+					<div>
+						<dt class="text-fg-muted">path</dt>
+						<dd class="text-fg mt-0.5 truncate">{actor.path}</dd>
+					</div>
+				{/if}
+			</dl>
+			{#if actor.path}
+				<div class="mt-5 flex flex-wrap items-center justify-end gap-2">
+					<span class="text-fg-muted mr-auto text-xs"
+						>Or drop an image on the portrait.</span
+					>
+					{#if staged}
+						<Button variant="secondary" onclick={undo}>Undo</Button>
+					{:else if override}
+						<Button variant="danger" onclick={remove}>Remove override</Button>
+					{/if}
+					<FileButton onfile={choose}>
+						<Upload class="size-4" aria-hidden="true" />
+						{override || staged?.kind === 'set'
+							? 'Replace portrait'
+							: 'Choose portrait'}
+					</FileButton>
+				</div>
+			{/if}
+		</Card>
 
 		{#each libraries as [library, titles] (library)}
 			<section class="mt-8">
