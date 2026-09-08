@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
-	import { api, ApiError, type ActorPage, type UploadSource } from '$lib/api/client';
+	import {
+		api,
+		ApiError,
+		type ActorPage,
+		type TmdbPerson,
+		type UploadSource,
+	} from '$lib/api/client';
 	import { discard, stage, pending } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
@@ -18,6 +24,7 @@
 	let page = $state<ActorPage | null>(null);
 	let error = $state<string | null>(null);
 	let source = $state<UploadSource | null>(null);
+	let tmdbPerson = $state<TmdbPerson | null>(null);
 	let editing = $state(false);
 	let over = $state(false);
 	let details = $state(false);
@@ -75,6 +82,19 @@
 		}
 		return groups;
 	});
+
+	// the person on TMDb and IMDb: their own pages once TMDb found them, a
+	// search for the name until then
+	const tmdbHref = $derived(
+		tmdbPerson
+			? `https://www.themoviedb.org/person/${tmdbPerson.id}`
+			: `https://www.themoviedb.org/search?query=${encodeURIComponent(actor?.name ?? '')}`
+	);
+	const imdbHref = $derived(
+		tmdbPerson?.imdbId
+			? `https://www.imdb.com/name/${tmdbPerson.imdbId}/`
+			: `https://www.imdb.com/find/?q=${encodeURIComponent(actor?.name ?? '')}`
+	);
 
 	function choose(f: File) {
 		source = { file: f };
@@ -144,6 +164,8 @@
 					</a>
 				</div>
 				<div class="mt-3 flex flex-wrap gap-2">
+					<Badge href={tmdbHref}>TMDb</Badge>
+					<Badge href={imdbHref}>IMDb</Badge>
 					{#if staged}
 						<Badge tone="warning"
 							>{staged.kind === 'set'
@@ -194,7 +216,12 @@
 		</div>
 
 		{#if actor.path}
-			<TmdbPicker actorKey={actor.key} actorName={actor.name} enabled={tmdb} onpick={pick} />
+			<TmdbPicker
+				actorKey={actor.key}
+				enabled={tmdb}
+				bind:person={tmdbPerson}
+				onpick={pick}
+			/>
 		{/if}
 
 		{#each libraries as [library, titles] (library)}

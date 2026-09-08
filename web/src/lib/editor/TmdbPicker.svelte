@@ -1,9 +1,8 @@
 <script lang="ts">
-	// The person elsewhere: links to them on TMDb and IMDb, and, when the
-	// server has a TMDb key, the portraits TMDb holds, each a click from the
-	// crop editor. The server picks the likeliest person of that name; the
-	// others are a click away when it picked wrong.
-	import { ExternalLink } from '@lucide/svelte';
+	// The portraits TMDb holds of the person, each a click from the crop
+	// editor, when the server has a TMDb key. The server picks the likeliest
+	// person of that name; the others are a click away when it picked wrong.
+	// The person found is bound out, so the page can link to them.
 	import { api, type TmdbMatch, type TmdbPerson } from '$lib/api/client';
 	import Button from '$lib/ui/button/Button.svelte';
 	import ImageButton from '$lib/ui/image-button/ImageButton.svelte';
@@ -12,19 +11,18 @@
 
 	let {
 		actorKey,
-		actorName,
 		enabled,
+		person = $bindable(null),
 		onpick,
 	}: {
 		actorKey: string;
-		actorName: string;
-		/** whether the server has a key; without one there are only links */
+		/** whether the server has a key; without one there is only a hint */
 		enabled: boolean;
+		person?: TmdbPerson | null;
 		onpick: (path: string) => void;
 	} = $props();
 
 	let match = $state<TmdbMatch | null>(null);
-	let person = $state<TmdbPerson | null>(null);
 	let error = $state<string | null>(null);
 	let loading = $state(false);
 
@@ -56,32 +54,10 @@
 		}
 	}
 
-	const query = $derived(encodeURIComponent(actorName));
-	const tmdbHref = $derived(
-		person
-			? `https://www.themoviedb.org/person/${person.id}`
-			: `https://www.themoviedb.org/search?query=${query}`
-	);
-	const imdbHref = $derived(
-		person?.imdbId
-			? `https://www.imdb.com/name/${person.imdbId}/`
-			: `https://www.imdb.com/find/?q=${query}`
-	);
 	const others = $derived((match?.candidates ?? []).filter((c) => c.id !== person?.id));
-	const linkClass =
-		'text-fg-muted hover:text-fg inline-flex items-center gap-1 text-sm transition-colors';
 </script>
 
 <section class="mt-8">
-	<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-		<h2 class="text-fg-muted text-sm font-medium">Elsewhere</h2>
-		<a href={tmdbHref} target="_blank" rel="noreferrer" class={linkClass}>
-			TMDb <ExternalLink class="size-3.5" aria-hidden="true" />
-		</a>
-		<a href={imdbHref} target="_blank" rel="noreferrer" class={linkClass}>
-			IMDb <ExternalLink class="size-3.5" aria-hidden="true" />
-		</a>
-	</div>
 	{#if !enabled}
 		<p class="text-fg-muted text-sm">
 			Set UNDERSTUDY_TMDB_KEY and the portraits TMDb has appear here.
