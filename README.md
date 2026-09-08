@@ -30,43 +30,28 @@ Understudy lets you replace Plex's actor portraits with pictures of your own by 
 
 ## Getting started
 
-Plex fetches actor portraits itself, over HTTPS, from one hostname. Understudy answers at that hostname, so most of the setup is convincing Plex: a certificate it will trust, and a hosts entry that sends the hostname to the proxy. Nothing in Plex itself changes. With that in place you choose portraits in the editor, and sync tells the proxy which URLs to answer with them.
+Plex fetches actor portraits itself, over HTTPS, from one hostname. Understudy answers at that hostname, so most of the setup is convincing Plex: a certificate it will trust, and a hosts entry that sends the hostname to the proxy. Nothing in Plex itself changes. With that in place you list people and their pictures in the configuration, and sync tells the proxy which URLs to answer with them.
 
 ### Requirements
 
 - Docker with Compose
-- Plex in Docker, on the linuxserver image. Another image needs its own way of trusting a certificate.
+- Plex in Docker. This README assumes the linuxserver image.
 - Your Plex [token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
-### A folder for everything
+### Compose
 
-Everything Understudy owns lives in one folder: the certificates, the configuration and portraits, and the state the proxy reads. Plex gets nothing from it but one startup script.
-
-```bash
-mkdir understudy && cd understudy
-mkdir certs config portraits state
-echo 'version: 1' > config/configuration.yml
-echo 'PLEX_TOKEN=your-token' > .env
-```
-
-### Make a certificate Plex will trust
-
-Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it.
-
-```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/certs:/certs" ghcr.io/santiagosayshey/understudy:latest cert
-```
-
-The certificate stays with the proxy. The authority is for Plex, and `cert` writes it into a startup script under `certs/plex` for the next step. Keep `ca.key` with your other secrets: Plex will trust anything signed with it.
-
-### Run the proxy
-
-The proxy is what answers as the CDN. It serves your portraits and passes everything else through to the real one, so Plex sees no difference. Plex will find it by IP, so it gets a fixed address on a network of its own. Nothing else talks to it: no ports, no token.
-
-`compose.yml`:
+Everything runs from one compose file. The same file is at [contrib/compose.yml](contrib/compose.yml).
 
 ```yaml
+# Understudy's files live in four directories:
+#   certs/      the certificates and the Plex startup script, written by cert
+#   config/     configuration.yml
+#   portraits/  the pictures
+#   state/      what sync works out for the proxy
+
 services:
+  # Answers as the CDN. Only Plex talks to it, at the fixed address below,
+  # so it publishes no ports and needs no token.
   proxy:
     image: ghcr.io/santiagosayshey/understudy:latest
     command: proxy
@@ -80,69 +65,16 @@ services:
         ipv4_address: 172.31.250.10
     restart: unless-stopped
 
-networks:
-  understudy:
-    ipam:
-      config:
-        - subnet: 172.31.250.0/24
-```
-
-```bash
-docker compose up -d proxy
-```
-
-### Point Plex at it
-
-Plex needs two things: to resolve the CDN's hostname to the proxy, and to trust the authority that signed the proxy's certificate. The hosts entry does the first. The startup script that `cert` wrote does the second: the linuxserver image runs anything under `/custom-cont-init.d` on every start, so the authority is installed before Plex comes up, upgrades included.
-
-```yaml
-    extra_hosts:
-      - "metadata-static.plex.tv:172.31.250.10"
-    volumes:
-      - /path/to/understudy/certs/plex:/custom-cont-init.d:ro
-```
-
-If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
-
-### Choose portraits
-
-The editor is where you pick who gets which picture. It talks to Plex to find people, so it needs the token, and it writes only two things: `configuration.yml` and the portraits folder.
-
-```yaml
-  edit:
-    image: ghcr.io/santiagosayshey/understudy:latest
-    command: edit
-    user: "1000:1000"
-    environment:
-      UNDERSTUDY_PLEX_URL: http://192.168.1.10:32400   # Plex, as a container sees it
-      UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
-    volumes:
-      - ./config:/config
-      - ./portraits:/portraits
-      - ./state:/state:ro
-    ports:
-      - "127.0.0.1:8090:8090"
-    restart: unless-stopped
-```
-
-```bash
-docker compose up -d edit
-```
-
-Open http://localhost:8090. Search a name, open the person, drop in a photo, crop it, and apply from the review drawer.
-
-### Sync
-
-The proxy serves by URL, and only Plex knows which URL each person's portrait has right now. Sync asks Plex, writes the answer down for the proxy, and clears Plex's photo cache so the change shows. It runs once and exits.
-
-```yaml
+  # Looks up each person's portrait URL in Plex, writes it to state/ for the
+  # proxy, and clears Plex's photo cache when something changed. Runs on
+  # start and then every hour, so `docker compose restart sync` runs it now.
+  # Without --every it runs once and exits, for scripts and CI.
   sync:
     image: ghcr.io/santiagosayshey/understudy:latest
-    command: sync
+    command: sync --every 1h
     user: "1000:1000"
-    profiles: [tools]
     environment:
-      UNDERSTUDY_PLEX_URL: http://192.168.1.10:32400
+      UNDERSTUDY_PLEX_URL: http://plex:32400   # Plex, as a container sees it
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
       UNDERSTUDY_PLEX_CACHE: /plex/PhotoTranscoder
     volumes:
@@ -150,25 +82,44 @@ The proxy serves by URL, and only Plex knows which URL each person's portrait ha
       - ./portraits:/portraits:ro
       - ./state:/state
       - "/path/to/plex/config/Library/Application Support/Plex Media Server/Cache/PhotoTranscoder:/plex/PhotoTranscoder"
+    restart: unless-stopped
+
+  # Your Plex container, here or in its own compose file, with two additions.
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    network_mode: host   # or attach it to the understudy network below
+    # Resolves the CDN's hostname to the proxy, so Plex fetches portraits
+    # from it. Only this one name is redirected. The address is the proxy's
+    # ipv4_address above.
+    extra_hosts:
+      - "metadata-static.plex.tv:172.31.250.10"
+    volumes:
+      - /path/to/plex/config:/config
+      # The startup script cert wrote. The linuxserver image runs it on every
+      # start, so Plex trusts the proxy's certificate, upgrades included.
+      - ./certs/plex:/custom-cont-init.d:ro
+
+networks:
+  understudy:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
 ```
+
+### Certificates
+
+Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it. `cert` writes both into `certs`, along with the startup script that carries the authority into Plex.
 
 ```bash
-docker compose run --rm sync
+docker run --rm --user 1000:1000 -v /path/to/understudy/certs:/certs ghcr.io/santiagosayshey/understudy:latest cert
 ```
 
-Hard refresh your Plex client and the portraits are yours. Plex changes those URLs now and then, so run sync on a schedule too. It is what keeps a portrait attached when that happens:
+> [!WARNING]
+> `ca.key` is the authority's private key. Plex trusts the authority for every hostname, so anyone with the key can impersonate any site to Plex. Nothing needs it after `cert` runs. Keep it out of version control and with your other secrets.
 
-```
-0 * * * *  cd /path/to/understudy && docker compose run --rm sync
-```
+### Configuration
 
-### All in one file
-
-[contrib/compose.yml](contrib/compose.yml) is everything above in one file, Plex included.
-
-## Configuration
-
-The editor writes this file. If you would rather write it yourself:
+The configuration is one YAML file, `config/configuration.yml`, listing people and their pictures:
 
 ```yaml
 version: 1
@@ -185,17 +136,62 @@ people:
 - Images are JPEG or PNG. Square is what Plex's round avatars expect; anything else is centre-cropped.
 - `understudy validate` checks the file against Plex without changing anything.
 
+The file is plain YAML, so it can be version controlled and edited by hand. The editor makes that easier. It searches Plex for people, so names and ids come out right. It crops each picture to the square Plex expects, then writes the file and the portraits directory for you. To use it, add it to the compose file:
+
+```yaml
+  # The editor, at http://localhost:8090. It writes configuration.yml and
+  # the portraits directory.
+  edit:
+    image: ghcr.io/santiagosayshey/understudy:latest
+    command: edit
+    user: "1000:1000"
+    environment:
+      UNDERSTUDY_PLEX_URL: http://plex:32400   # Plex, as a container sees it
+      UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
+    volumes:
+      - ./config:/config
+      - ./portraits:/portraits
+      - ./state:/state:ro
+    ports:
+      - 8090:8090
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d edit
+```
+
+Open http://localhost:8090. Search a name, open the person, drop in a photo, crop it, and apply from the review drawer.
+
+### Environment
+
+Everything is set with environment variables, or the flag of the same name.
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `UNDERSTUDY_PLEX_URL` | | Plex's address, as a container sees it. Needed by `edit`, `sync` and `validate`. |
+| `UNDERSTUDY_PLEX_TOKEN` | | Plex's token. Needed by `edit`, `sync` and `validate`. |
+| `UNDERSTUDY_PLEX_CACHE` | | Plex's `Cache/PhotoTranscoder` directory. `sync` clears it when something changed. |
+| `UNDERSTUDY_EVERY` | | How often `sync` runs, such as `1h`. Without it, once. |
+| `UNDERSTUDY_CONFIG` | `/config/configuration.yml` | The configuration file. |
+| `UNDERSTUDY_PORTRAITS` | `/portraits` | The pictures the configuration refers to. |
+| `UNDERSTUDY_STATE` | `/state` | Where `sync` writes what `proxy` serves. |
+| `UNDERSTUDY_CERTS` | `/certs` | Where `cert` writes the certificates and `proxy` reads them. |
+| `UNDERSTUDY_LISTEN` | `:443` | The address `proxy` listens on. |
+| `UNDERSTUDY_LISTEN` | `:8090` | The address `edit` listens on. |
+| `UNDERSTUDY_CDN` | `https://metadata-static.plex.tv` | The real CDN `proxy` forwards misses to. |
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `understudy proxy` | Stand in for the CDN. Long-lived, beside Plex. |
 | `understudy edit` | Serve the editor. Long-lived, wherever the browser is. |
-| `understudy sync` | Resolve the configuration, write the state, clear Plex's cache. One shot; run it after changes and on a schedule. |
+| `understudy sync` | Resolve the configuration, write the state, clear Plex's cache. Once, or on an interval with `--every`. |
 | `understudy validate` | Check the configuration against Plex. One shot. |
-| `understudy cert` | Write the certificate authority and the leaf certificate. Once. |
+| `understudy cert` | Write the certificate authority, the proxy's certificate, and the Plex startup script. Once. |
 
-Every flag has an environment variable of the same name under `UNDERSTUDY_`; `understudy <command> -h` lists them. The editor and sync need `UNDERSTUDY_PLEX_URL` and `UNDERSTUDY_PLEX_TOKEN`. The proxy needs neither.
+`understudy <command> -h` lists each command's flags. They are the [environment variables](#environment) without the prefix.
 
 ## Development
 
@@ -203,7 +199,6 @@ Every flag has an environment variable of the same name under `UNDERSTUDY_`; `un
 
 - Go 1.26
 - Node 24 and pnpm 11
-- Docker, only to build the image
 
 ### Develop
 
@@ -227,4 +222,7 @@ make build && ./bin/understudy edit --plex-url http://your-plex:32400 --plex-tok
 
 ## Credits
 
-The masks are Google's [Noto Color Emoji](https://github.com/googlefonts/noto-emoji), Apache 2.0. The typeface is Vercel's [Geist](https://vercel.com/font), SIL Open Font License. Icons are [Lucide](https://lucide.dev), ISC. Understudy itself is [MIT](LICENSE).
+- The masks are Google's [Noto Color Emoji](https://github.com/googlefonts/noto-emoji), Apache 2.0.
+- The typeface is Vercel's [Geist](https://vercel.com/font), SIL Open Font License.
+- Icons are [Lucide](https://lucide.dev), ISC.
+- Understudy itself is [MIT](LICENSE).
