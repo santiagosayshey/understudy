@@ -49,7 +49,7 @@ echo 'version: 1' > config/configuration.yml
 echo 'PLEX_TOKEN=your-token' > .env
 ```
 
-The containers run as you so they can write here: put your `id -u` and `id -g` in the `user:` lines below.
+The containers run as your user so they can read and write this folder. The `user:` lines below assume that is `1000:1000`; check with `id -u` and `id -g`.
 
 ### Make a certificate Plex will trust
 
