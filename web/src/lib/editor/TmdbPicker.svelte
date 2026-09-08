@@ -16,7 +16,7 @@
 		onpick,
 	}: {
 		actorKey: string;
-		/** whether the server has a key; without one there is only a hint */
+		/** whether the server has a key; without one nothing is shown */
 		enabled: boolean;
 		person?: TmdbPerson | null;
 		onpick: (path: string) => void;
@@ -57,42 +57,42 @@
 	const others = $derived((match?.candidates ?? []).filter((c) => c.id !== person?.id));
 </script>
 
-<section class="mt-8">
-	{#if !enabled}
-		<p class="text-fg-muted text-sm">
-			Set UNDERSTUDY_TMDB_KEY and the portraits TMDb has appear here.
-		</p>
-	{:else if error}
-		<Notice tone="danger">{error}</Notice>
-	{:else if loading}
-		<div class="text-fg-muted flex items-center gap-3 text-sm"><Spinner /> Asking TMDb…</div>
-	{:else if !person}
-		<p class="text-fg-muted text-sm">No one on TMDb by that name.</p>
-	{:else}
-		{#if person.profiles.length}
-			<ul class="flex gap-4 overflow-x-auto pb-4">
-				{#each person.profiles as p (p.path)}
-					<li class="w-28 shrink-0">
-						<ImageButton
-							src={api.tmdbImage(p.path, 400)}
-							label="Use this portrait of {person.name}"
-							onclick={() => onpick(p.path)}
-						/>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="text-fg-muted text-sm">TMDb has no pictures of {person.name}.</p>
-		{/if}
-		{#if others.length}
-			<div class="mt-1 flex flex-wrap items-center gap-2">
-				<span class="text-fg-muted text-sm">Not {person.name}?</span>
-				{#each others as c (c.id)}
-					<Button variant="secondary" size="sm" onclick={() => choose(c.id)}>
-						{c.name}{c.knownFor.length ? ` · ${c.knownFor[0]}` : ''}
-					</Button>
-				{/each}
+{#if enabled}
+	<section class="mt-8">
+		{#if error}
+			<Notice tone="danger">{error}</Notice>
+		{:else if loading}
+			<div class="text-fg-muted flex items-center gap-3 text-sm">
+				<Spinner /> Asking TMDb…
 			</div>
+		{:else if !person}
+			<p class="text-fg-muted text-sm">No one on TMDb by that name.</p>
+		{:else}
+			{#if person.profiles.length}
+				<ul class="flex gap-4 overflow-x-auto pb-4">
+					{#each person.profiles as p (p.path)}
+						<li class="w-28 shrink-0">
+							<ImageButton
+								src={api.tmdbImage(p.path, 400)}
+								label="Use this portrait of {person.name}"
+								onclick={() => onpick(p.path)}
+							/>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="text-fg-muted text-sm">TMDb has no pictures of {person.name}.</p>
+			{/if}
+			{#if others.length}
+				<div class="mt-1 flex flex-wrap items-center gap-2">
+					<span class="text-fg-muted text-sm">Not {person.name}?</span>
+					{#each others as c (c.id)}
+						<Button variant="secondary" size="sm" onclick={() => choose(c.id)}>
+							{c.name}{c.knownFor.length ? ` · ${c.knownFor[0]}` : ''}
+						</Button>
+					{/each}
+				</div>
+			{/if}
 		{/if}
-	{/if}
-</section>
+	</section>
+{/if}

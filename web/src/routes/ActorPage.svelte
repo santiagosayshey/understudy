@@ -210,7 +210,10 @@
 							</Tooltip>
 						{/if}
 					</div>
-					<p class="text-fg-muted mt-2 text-xs">Or drop an image on the portrait.</p>
+					<p class="text-fg-muted mt-2 text-xs">
+						Or drop an image on the portrait.
+						{#if !tmdb}Set UNDERSTUDY_TMDB_KEY to pick one from TMDb.{/if}
+					</p>
 				{/if}
 			</div>
 		</div>
