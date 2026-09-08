@@ -8,6 +8,7 @@
 	import FileInput from '$lib/ui/file-input/FileInput.svelte';
 	import Dialog from '$lib/ui/dialog/Dialog.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
+	import Tooltip from '$lib/ui/tooltip/Tooltip.svelte';
 	import { link } from '$lib/router/router.svelte';
 	import PortraitDialog from '$lib/editor/PortraitDialog.svelte';
 
@@ -109,13 +110,20 @@
 				ondragleave={() => (over = false)}
 				{ondrop}
 			>
-				<Avatar src={effective} alt="" size="xl" />
-				{#if showsPlex}
-					<div class="flex flex-col items-center gap-1">
-						<Avatar src={api.cdnImage(actor.path!, 96)} alt="" size="sm" />
-						<span class="text-fg-muted text-xs">Plex's</span>
-					</div>
-				{/if}
+				<div class="relative">
+					<Avatar src={effective} alt="" size="xl" />
+					{#if showsPlex}
+						<div class="bg-bg absolute -right-1 -bottom-1 rounded-full p-1">
+							<Tooltip text="Plex's portrait">
+								<Avatar
+									src={api.cdnImage(actor.path!, 96)}
+									alt="Plex's portrait"
+									size="md"
+								/>
+							</Tooltip>
+						</div>
+					{/if}
+				</div>
 			</div>
 			<div class="min-w-0 flex-1">
 				<div class="flex items-start justify-between gap-4">
