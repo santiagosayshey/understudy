@@ -101,7 +101,7 @@ The cache clear deletes the contents of Plex's photo cache directory, and refuse
 
 ### Scheduling and the report
 
-The job runs only when invoked. There is no timer inside Understudy. The user runs it after a configuration change and on whatever schedule they choose. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that finds nothing changed is cheap and touches nothing.
+The job runs once and exits, or, given an interval, on start and then on that interval until stopped. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that finds nothing changed is cheap and touches nothing.
 
 The report lists every entry with its outcome, each drift as the old and new path, every problem, and whether the cache was cleared. The exit status uses the same three-way split as validation: clean, completed with problems, could not complete.
 
@@ -162,6 +162,7 @@ Every setting is a flag with an environment variable of the same name under `UND
 | `--plex-url URL` | none | `sync`, `validate`, `edit` |
 | `--plex-token TOKEN` | none | `sync`, `validate`, `edit`. Omitted when the URL is a proxy that injects it |
 | `--plex-cache DIR` | none | `sync`. Plex's `Cache/PhotoTranscoder` directory. Without it no clear happens and the report says so. Any other directory name is refused |
+| `--every DURATION` | none | `sync`. Run on start and then this often. Without it, once |
 | `--cdn URL` | `https://metadata-static.plex.tv` | `proxy`. Changed only in tests |
 | `--listen ADDR` | `:443` for `proxy`, `:8090` for `edit` | `proxy`, `edit` |
 | `--status-listen ADDR` | `:8091` | `proxy`, a plain HTTP port for health and status |
@@ -219,7 +220,7 @@ The proxy needs a fixed address the Plex container can reach on port 443. On Doc
 
 ### All in one
 
-Two services from one image, the resolving job run by host cron, and a Plex service with the two additions.
+Three services from one image, the resolving job on an interval, and a Plex service with the two additions.
 
 ```yaml
 services:
@@ -249,8 +250,7 @@ services:
       - "127.0.0.1:8090:8090"
   sync:
     image: ghcr.io/santiagosayshey/understudy:latest
-    command: sync
-    profiles: [tools]                       # never started by `up`; run by cron
+    command: sync --every 1h
     environment:
       UNDERSTUDY_PLEX_URL: http://localhost:32400
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
@@ -272,7 +272,7 @@ networks:
         - subnet: 172.31.250.0/24
 ```
 
-The cron line is `docker compose run --rm sync`, on whatever interval the user chooses.
+Without `--every` the job runs once and exits, for scripts.
 
 ### Split
 
