@@ -4,6 +4,7 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
+import understudy from './eslint/plugin.js';
 
 export default ts.config(
 	js.configs.recommended,
@@ -15,6 +16,14 @@ export default ts.config(
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts'],
 		languageOptions: { parserOptions: { parser: ts.parser, svelteConfig } },
+	},
+	{
+		files: ['**/*.svelte'],
+		plugins: { understudy },
+		rules: {
+			'understudy/no-raw-elements': 'error',
+			'understudy/no-palette-classes': 'error',
+		},
 	},
 	{ ignores: ['dist/'] }
 );

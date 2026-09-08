@@ -21,5 +21,6 @@
 			"$lib/*": ["./src/lib/*"]
 		}
 	},
-	"include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "vite.config.ts", "eslint.config.js"]
+	"include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "vite.config.ts"],
+	"exclude": ["eslint"]
 }

@@ -22,7 +22,7 @@ One command runs both halves with hot reload: the binary is rebuilt and restarte
 make dev
 ```
 
-`make check` runs everything CI runs: gofmt, go vet, staticcheck, go test, prettier, eslint and svelte-check.
+`make check` runs everything CI runs: gofmt, go vet, staticcheck, go test, prettier, eslint and svelte-check. `make lint` runs only the project's own rules: `web/eslint/` forbids raw form elements outside the ui library and palette colours anywhere, and `internal/lint/` keeps package imports on the right side of the design's seams. Each rule is one file with a test beside it.
 
 ### Preview
 

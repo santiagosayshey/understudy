@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -165,6 +166,26 @@ func (c *Client) Roles(ctx context.Context, ratingKey string) ([]Role, error) {
 		}
 	}
 	return roles, nil
+}
+
+// Thumb returns a title's poster image as Plex stores it.
+func (c *Client) Thumb(ctx context.Context, ratingKey string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/library/metadata/"+url.PathEscape(ratingKey)+"/thumb", nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.token != "" {
+		req.Header.Set("X-Plex-Token", c.token)
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("plex: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("plex: thumb %s returned %s", ratingKey, res.Status)
+	}
+	return io.ReadAll(res.Body)
 }
 
 func (c *Client) get(ctx context.Context, path string, into any) error {
