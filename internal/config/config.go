@@ -49,17 +49,22 @@ type Problem struct {
 
 func (p Problem) String() string { return p.Detail }
 
-// Load parses the file. It fails on anything that makes the whole file
-// unusable: unreadable, unparseable, or an unknown version.
+// Load parses the file. A missing file is an empty configuration, which is
+// what a fresh install has; the editor writes the file on the first apply.
+// Anything else that makes the whole file unusable is an error: unreadable,
+// unparseable, or an unknown version.
 func Load(file string) (*Config, error) {
 	b, err := os.ReadFile(file)
+	if errors.Is(err, os.ErrNotExist) {
+		return &Config{Version: 1}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
 	var c Config
 	dec := yaml.NewDecoder(strings.NewReader(string(b)))
 	dec.KnownFields(true)
-	if err := dec.Decode(&c); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := dec.Decode(&c); err != nil {
 		if err.Error() == "EOF" {
 			return nil, fmt.Errorf("%s: empty file", file)
 		}

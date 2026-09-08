@@ -123,3 +123,13 @@ func TestLoadRejectsBadFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadMissingFileIsEmpty(t *testing.T) {
+	c, err := Load(filepath.Join(t.TempDir(), "configuration.yml"))
+	if err != nil {
+		t.Fatalf("a missing file is a fresh install, got %v", err)
+	}
+	if c.Version != 1 || len(c.People) != 0 {
+		t.Fatalf("want an empty version 1 configuration, got %+v", c)
+	}
+}
