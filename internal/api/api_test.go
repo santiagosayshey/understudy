@@ -202,10 +202,43 @@ func TestTitle(t *testing.T) {
 	if cailee == nil {
 		t.Fatalf("Cailee Spaeny missing from the cast: %+v", cast)
 	}
-	if !cailee.Listed || cailee.Key != "27126" || cailee.Role != "Jessie" || cailee.TagKey == "" || cailee.Path == "" {
+	if cailee.Key != "27126" || cailee.Role != "Jessie" || cailee.TagKey == "" || cailee.Path == "" {
 		t.Errorf("got %+v", *cailee)
+	}
+	var tramell *CastMember
+	for i := range cast {
+		if cast[i].Name == "Tramell Tillman" {
+			tramell = &cast[i]
+		}
+	}
+	if tramell == nil || tramell.Key != "24899" || tramell.Path == "" {
+		t.Errorf("cast Plex does not list should still be in the cast: %+v", tramell)
 	}
 	if _, _, ok, err := l.Title(context.Background(), "999"); err != nil || ok {
 		t.Errorf("unknown title: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestUnlistedPerson(t *testing.T) {
+	l := loadedListing(t)
+	if _, ok := l.Get("24899"); ok {
+		t.Fatal("the fake should not list Tramell Tillman")
+	}
+	d, ok, err := l.Detail(context.Background(), "24899")
+	if err != nil || !ok {
+		t.Fatalf("detail: ok=%v err=%v", ok, err)
+	}
+	if d.Name != "Tramell Tillman" || d.TagKey != "5d776825880197001ec9aaaa" || d.Path == "" || len(d.Titles) != 1 || len(d.Libraries) != 1 {
+		t.Errorf("got %+v", d)
+	}
+	if _, ok, err := l.Detail(context.Background(), "999999"); err != nil || ok {
+		t.Errorf("unknown key: ok=%v err=%v", ok, err)
+	}
+	people, err := l.People(context.Background(), "tillman")
+	if err != nil || len(people) != 1 || people[0].Key != "24899" {
+		t.Errorf("search: %+v %v", people, err)
+	}
+	if people, _ := l.People(context.Background(), "cailee"); len(people) != 0 {
+		t.Errorf("listed people should not come back from search: %+v", people)
 	}
 }
