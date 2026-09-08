@@ -36,6 +36,15 @@ type Info struct {
 	Format string `json:"format"`
 }
 
+// Image decodes an upload's pixels.
+func Image(upload []byte) (image.Image, error) {
+	src, _, err := image.Decode(bytes.NewReader(upload))
+	if err != nil {
+		return nil, fmt.Errorf("not a JPEG or PNG")
+	}
+	return src, nil
+}
+
 // Decode reads an upload's dimensions without decoding the pixels.
 func Decode(r io.Reader) (Info, error) {
 	cfg, format, err := image.DecodeConfig(r)
@@ -50,9 +59,9 @@ func Decode(r io.Reader) (Info, error) {
 
 // Square cuts the box out of the upload and returns the encoded portrait.
 func Square(upload []byte, box Box) ([]byte, error) {
-	src, _, err := image.Decode(bytes.NewReader(upload))
+	src, err := Image(upload)
 	if err != nil {
-		return nil, fmt.Errorf("not a JPEG or PNG")
+		return nil, err
 	}
 	b := src.Bounds()
 	if box.Size < MinSource {

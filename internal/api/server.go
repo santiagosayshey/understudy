@@ -12,6 +12,7 @@ import (
 
 	"github.com/santiagosayshey/understudy/internal/config"
 	"github.com/santiagosayshey/understudy/internal/crop"
+	"github.com/santiagosayshey/understudy/internal/face"
 	"github.com/santiagosayshey/understudy/internal/state"
 )
 
@@ -68,7 +69,14 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID()
 	s.Staging.AddUpload(id, data, info)
-	writeJSON(w, http.StatusOK, map[string]any{"id": id, "width": info.Width, "height": info.Height, "format": info.Format})
+	resp := map[string]any{"id": id, "width": info.Width, "height": info.Height, "format": info.Format}
+	// The crop editor opens on the face when there is one to find.
+	if img, err := crop.Image(data); err == nil {
+		if f, ok := face.Suggest(img); ok {
+			resp["face"] = crop.Box{X: f.X, Y: f.Y, Size: f.Size}
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) uploadImage(w http.ResponseWriter, r *http.Request) {
