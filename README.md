@@ -40,24 +40,24 @@ Plex fetches actor portraits itself, over HTTPS, from one hostname. Understudy a
 
 ### A folder for everything
 
-Everything Understudy owns lives in one folder: the certificates, the configuration and portraits, and the state the proxy reads. Plex gets nothing from it but a certificate and a startup script.
+Everything Understudy owns lives in one folder: the certificates, the configuration and portraits, and the state the proxy reads. Plex gets nothing from it but one startup script.
 
 ```bash
 mkdir understudy && cd understudy
-mkdir certs config portraits state plex-init
+mkdir certs config portraits state
 echo 'version: 1' > config/configuration.yml
 echo 'PLEX_TOKEN=your-token' > .env
 ```
 
 ### Make a certificate Plex will trust
 
-Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it. The authority goes into Plex, the certificate stays with the proxy.
+Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it.
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/certs:/certs" ghcr.io/santiagosayshey/understudy:latest cert
 ```
 
-Keep `ca.key` with your other secrets: Plex will trust anything signed with it.
+The certificate stays with the proxy. The authority is for Plex, and `cert` writes it into a startup script under `certs/plex` for the next step. Keep `ca.key` with your other secrets: Plex will trust anything signed with it.
 
 ### Run the proxy
 
@@ -93,22 +93,13 @@ docker compose up -d proxy
 
 ### Point Plex at it
 
-Plex needs two things: to resolve the CDN's hostname to the proxy, and to trust the authority that signed the proxy's certificate. The first is a hosts entry. The second is a script that installs the authority every time the container starts, because the trust store is inside the container and would not survive an upgrade.
+Plex needs two things: to resolve the CDN's hostname to the proxy, and to trust the authority that signed the proxy's certificate. The hosts entry does the first. The startup script that `cert` wrote does the second: the linuxserver image runs anything under `/custom-cont-init.d` on every start, so the authority is installed before Plex comes up, upgrades included.
 
 ```yaml
     extra_hosts:
       - "metadata-static.plex.tv:172.31.250.10"
     volumes:
-      - /path/to/understudy/certs/ca.crt:/understudy/ca.crt:ro
-      - /path/to/understudy/plex-init:/custom-cont-init.d:ro
-```
-
-Save the script as `plex-init/10-understudy-ca.sh` and make it executable:
-
-```bash
-#!/bin/bash
-cp /understudy/ca.crt /usr/local/share/ca-certificates/understudy.crt
-update-ca-certificates
+      - /path/to/understudy/certs/plex:/custom-cont-init.d:ro
 ```
 
 If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
@@ -173,7 +164,7 @@ Hard refresh your Plex client and the portraits are yours. Plex changes those UR
 
 ### All in one file
 
-[contrib/compose.yml](contrib/compose.yml) is everything above in one file, Plex included, and [contrib/plex](contrib/plex) is the hook with a check that the certificate is there.
+[contrib/compose.yml](contrib/compose.yml) is everything above in one file, Plex included.
 
 ## Configuration
 
