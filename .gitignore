@@ -6,5 +6,5 @@ bin/
 
 # runtime files that never belong in git
 .env
-certs/
-state/
+/certs/
+/state/
