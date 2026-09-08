@@ -29,7 +29,7 @@ services:
       UNDERSTUDY_PLEX_URL: http://172.17.0.1:32400
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
     volumes:
-      - ./configuration.yml:/config/configuration.yml
+      - ./config:/config
       - ./portraits:/portraits
       - ./state:/state:ro
     ports:
@@ -44,12 +44,12 @@ services:
     environment:
       UNDERSTUDY_PLEX_URL: http://172.17.0.1:32400
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
-      UNDERSTUDY_PLEX_CACHE: /plex-cache
+      UNDERSTUDY_PLEX_CACHE: /plex/PhotoTranscoder
     volumes:
-      - ./configuration.yml:/config/configuration.yml:ro
+      - ./config:/config:ro
       - ./portraits:/portraits:ro
       - ./state:/state
-      - /path/to/plex/appdata/Library/Application Support/Plex Media Server/Cache/PhotoTranscoder:/plex-cache
+      - "/path/to/plex/appdata/Library/Application Support/Plex Media Server/Cache/PhotoTranscoder:/plex/PhotoTranscoder"
 
   understudy: # for one-off commands such as cert
     image: ghcr.io/santiagosayshey/understudy:latest
