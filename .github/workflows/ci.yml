@@ -4,7 +4,15 @@ on:
   push:
     branches: [develop]
 jobs:
-  check:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: make check-go
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -16,9 +24,10 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-      - run: make web
-      - run: make check
+      - run: cd web && pnpm install --frozen-lockfile
+      - run: make check-web
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
       - run: docker build --build-arg VERSION=ci .
