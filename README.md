@@ -30,7 +30,11 @@ Understudy lets you replace Plex's actor portraits with pictures of your own by 
 
 ## Getting started
 
-You need Plex in Docker, its [token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/), and Docker Compose. The Plex steps are for the linuxserver image; another image needs its own way of trusting a certificate.
+### Requirements
+
+- Docker with Compose
+- Plex in Docker, on the linuxserver image. Another image needs its own way of trusting a certificate.
+- Your Plex [token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
 ### Make a folder
 
