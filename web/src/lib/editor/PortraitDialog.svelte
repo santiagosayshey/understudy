@@ -63,11 +63,13 @@
 			height={upload.height}
 			bind:crop
 		/>
-		<div class="mt-5 flex justify-end gap-2">
-			<Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
-			<Button onclick={save} loading={busy}>Stage</Button>
-		</div>
 	{:else if !error}
 		<p class="text-fg-muted text-sm">Uploading…</p>
 	{/if}
+	{#snippet footer()}
+		<div class="flex items-center justify-between gap-2">
+			<Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
+			<Button onclick={save} loading={busy} disabled={!upload}>Stage</Button>
+		</div>
+	{/snippet}
 </Dialog>

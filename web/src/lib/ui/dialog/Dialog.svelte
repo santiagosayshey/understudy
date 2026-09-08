@@ -9,7 +9,14 @@
 		title,
 		size = 'md',
 		children,
-	}: { open?: boolean; title: string; size?: 'md' | 'lg'; children: Snippet } = $props();
+		footer,
+	}: {
+		open?: boolean;
+		title: string;
+		size?: 'md' | 'lg';
+		children: Snippet;
+		footer?: Snippet;
+	} = $props();
 
 	let panel = $state<HTMLElement | null>(null);
 	let previous: Element | null = null;
@@ -63,6 +70,11 @@
 			<div class="overflow-y-auto p-5">
 				{@render children()}
 			</div>
+			{#if footer}
+				<div class="border-border border-t px-5 py-3">
+					{@render footer()}
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
