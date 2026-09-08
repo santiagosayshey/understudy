@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowRight, Trash2 } from '@lucide/svelte';
+	import { ArrowRight, Pencil, Trash2 } from '@lucide/svelte';
 	import { api, type Applied, type Status } from '$lib/api/client';
 	import { pending, refreshChanges, discard, apply } from '$lib/changes/changes.svelte';
-	import { route, match, link } from '$lib/router/router.svelte';
+	import { route, match, navigate } from '$lib/router/router.svelte';
 	import Header from '$lib/ui/header/Header.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
@@ -97,16 +97,22 @@
 					<span class="text-fg-muted text-xs">back to Plex's</span>
 				{/if}
 				<span class="min-w-0 flex-1">
-					<a
-						href="/actors/{c.key}"
-						use:link
-						onclick={() => (review = false)}
-						class="block truncate font-medium hover:underline">{c.name}</a
-					>
+					<span class="block truncate font-medium">{c.name}</span>
 					<span class="text-fg-muted block text-xs"
 						>{c.kind === 'set' ? 'new portrait' : 'remove override'}</span
 					>
 				</span>
+				<Button
+					variant="ghost"
+					size="icon"
+					label="Edit"
+					onclick={() => {
+						review = false;
+						navigate('/actors/' + c.key);
+					}}
+				>
+					<Pencil class="size-4" aria-hidden="true" />
+				</Button>
 				<Button variant="ghost" size="icon" label="Discard" onclick={() => discard(c.key)}>
 					<Trash2 class="size-4" aria-hidden="true" />
 				</Button>
