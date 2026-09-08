@@ -9,7 +9,7 @@
 	<a
 		href="/"
 		use:link
-		class="text-fg focus-visible:outline-ring flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
+		class="text-fg hover:bg-surface-hover focus-visible:outline-ring -mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
 	>
 		<img src="/icon.png" alt="" class="size-6" />
 		<span class="font-semibold tracking-tight">understudy</span>
