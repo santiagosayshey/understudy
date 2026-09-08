@@ -28,6 +28,18 @@ Understudy lets you replace Plex's actor portraits with pictures of your own by 
 - **sync** asks Plex which URL it currently uses for each person you configured, since Plex names portraits by a hash that changes when its photo does, writes that down for the proxy, and clears Plex's photo cache when something changed.
 - **edit** is a web page for choosing portraits: find the person, confirm it is the right one, crop, review, apply.
 
+## Where it works
+
+Understudy changes a portrait wherever Plex's server fetches it. A client that loads portraits from the CDN itself never touches the proxy and keeps showing Plex's picture. Checked so far:
+
+| Client | Cast on a film or show |
+| --- | --- |
+| Plex Web | replaced |
+| Android | replaced |
+| iOS | not replaced; the app fetches the CDN itself |
+
+The actor's own page uses a second, larger picture of the person that sync does not know about yet, so it shows Plex's picture in every client.
+
 ## Getting started
 
 Plex fetches actor portraits itself, over HTTPS, from one hostname. Understudy answers at that hostname, so most of the setup is convincing Plex: a certificate it will trust, and a hosts entry that sends the hostname to the proxy. Nothing in Plex itself changes. With that in place you list people and their pictures in the configuration, and sync tells the proxy which URLs to answer with them.
