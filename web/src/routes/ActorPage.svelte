@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { ArrowLeft, ArrowRight, Check, Copy, Info, Upload } from '@lucide/svelte';
+	import { ArrowLeft, Check, Copy, Upload } from '@lucide/svelte';
 	import { api, ApiError, type ActorPage } from '$lib/api/client';
 	import { discard, stage } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
-	import Dialog from '$lib/ui/dialog/Dialog.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
 	import FileInput from '$lib/ui/file-input/FileInput.svelte';
 	import { link } from '$lib/router/router.svelte';
@@ -18,7 +17,6 @@
 	let file = $state<File | null>(null);
 	let editing = $state(false);
 	let over = $state(false);
-	let details = $state(false);
 	let copied = $state('');
 
 	async function copy(value: string) {
@@ -98,52 +96,74 @@
 	{:else}
 		<div class="flex items-start justify-between gap-4">
 			<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
-			<div class="mt-1 flex shrink-0 items-center gap-1">
+			<a
+				href="/"
+				use:link
+				class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
+			>
+				<ArrowLeft class="size-4" aria-hidden="true" />
+				Search
+			</a>
+		</div>
+
+		{#snippet fact(label: string, value: string)}
+			<div class="flex items-center gap-2">
+				<span class="text-fg-muted w-14 shrink-0 text-xs">{label}</span>
+				<span class="min-w-0 flex-1 truncate font-mono text-xs">{value}</span>
 				<Button
 					variant="ghost"
 					size="icon"
-					label="Details"
-					onclick={() => (details = true)}
+					label="Copy {label}"
+					onclick={() => copy(value)}
 				>
-					<Info class="size-4" aria-hidden="true" />
+					{#if copied === value}
+						<Check class="text-success size-3.5" aria-hidden="true" />
+					{:else}
+						<Copy class="size-3.5" aria-hidden="true" />
+					{/if}
 				</Button>
-				<a
-					href="/"
-					use:link
-					class="text-fg-muted hover:text-fg inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors"
-				>
-					<ArrowLeft class="size-4" aria-hidden="true" />
-					Search
-				</a>
 			</div>
-		</div>
-		{#if override?.drift || override?.problem || !actor.path}
-			<div class="mt-2 flex flex-wrap gap-2">
-				{#if override?.drift}
-					<Badge tone="warning">drift: Plex moved to a new path, run sync</Badge>
-				{/if}
-				{#if override?.problem}
-					<Badge tone="danger">{override.problem.detail}</Badge>
-				{/if}
-				{#if !actor.path}
-					<Badge>no photo in Plex, nothing to override</Badge>
-				{/if}
-			</div>
-		{/if}
+		{/snippet}
 
-		<div class="mt-6 flex items-center gap-6">
-			<figure class="flex flex-col items-center gap-2">
-				<Avatar
-					src={actor.path ? api.cdnImage(actor.path, 400) : undefined}
-					alt=""
-					size="xl"
-				/>
-				<figcaption class="text-fg-muted text-xs">Plex</figcaption>
-			</figure>
+		<div class="mt-6 grid gap-4 sm:grid-cols-2">
+			<section
+				class="border-border bg-surface shadow-raised flex flex-col rounded-lg border p-5"
+			>
+				<div class="flex items-center justify-between">
+					<h2 class="text-fg-muted text-sm font-medium">Plex</h2>
+					{#if override?.drift}
+						<Badge tone="warning">path moved</Badge>
+					{/if}
+				</div>
+				<div class="my-5 flex justify-center">
+					<Avatar
+						src={actor.path ? api.cdnImage(actor.path, 400) : undefined}
+						alt=""
+						size="xl"
+					/>
+				</div>
+				<div class="mt-auto space-y-1">
+					{#if actor.tagKey}
+						{@render fact('person', actor.tagKey)}
+					{/if}
+					{#if actor.path}
+						{@render fact('path', actor.path)}
+					{:else}
+						<p class="text-fg-muted text-xs">
+							Plex has no portrait for this person, so nothing is requested and there
+							is nothing to override.
+						</p>
+					{/if}
+				</div>
+			</section>
+
 			{#if actor.path}
-				<ArrowRight class="text-fg-muted size-5 shrink-0" aria-hidden="true" />
-				<div
-					class="flex flex-col items-center gap-2"
+				<section
+					class="bg-surface shadow-raised flex flex-col rounded-lg border p-5 transition-colors {hasOverride
+						? 'border-border'
+						: over
+							? 'border-ring border-dashed'
+							: 'border-border-strong border-dashed'}"
 					role="presentation"
 					ondragover={(e) => {
 						e.preventDefault();
@@ -152,48 +172,86 @@
 					ondragleave={() => (over = false)}
 					{ondrop}
 				>
+					<div class="flex items-center justify-between">
+						<h2 class="text-fg-muted text-sm font-medium">Override</h2>
+						{#if staged}
+							<Badge tone="warning"
+								>{staged.kind === 'set' ? 'staged' : 'removal staged'}</Badge
+							>
+						{:else if override?.problem}
+							<Badge tone="danger">problem</Badge>
+						{:else if override}
+							<Badge tone="success">in place</Badge>
+						{/if}
+					</div>
 					{#if hasOverride}
-						<div
-							class="rounded-full transition-shadow {over
-								? 'ring-ring/40 ring-4'
-								: ''}"
-						>
+						<div class="my-5 flex justify-center">
 							<Avatar src={effective} alt="" size="xl" />
 						</div>
-						<p class="text-fg-muted text-xs">
-							{staged?.kind === 'set' ? 'staged' : 'override'}
-						</p>
-						<div class="flex gap-1">
-							{#if staged}
-								<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
-							{:else}
-								<FileInput
-									onfile={choose}
-									class="text-fg hover:bg-surface-hover inline-flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors"
-								>
-									Replace
-								</FileInput>
-								<Button variant="ghost" size="sm" onclick={remove}>Remove</Button>
+						<div class="mt-auto space-y-1">
+							{#if staged?.kind === 'set'}
+								<p class="text-fg-muted text-xs">
+									Staged {new Date(staged.stagedAt).toLocaleTimeString()}. Applied
+									to the configuration when you review.
+								</p>
+							{:else if override}
+								{@render fact('image', override.image)}
+								{#if override.resolved}
+									<p class="text-fg-muted text-xs">
+										Resolved {new Date(
+											override.resolved
+										).toLocaleString()}{override.history?.length
+											? `, moved ${override.history.length}×`
+											: ''}.
+									</p>
+								{:else}
+									<p class="text-fg-muted text-xs">Not resolved yet. Run sync.</p>
+								{/if}
+								{#if override.problem}
+									<p class="text-danger text-xs">{override.problem.detail}</p>
+								{/if}
 							{/if}
+							<div class="flex justify-end gap-1 pt-2">
+								{#if staged}
+									<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
+								{:else}
+									<FileInput
+										onfile={choose}
+										class="text-fg hover:bg-surface-hover inline-flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors"
+									>
+										Replace
+									</FileInput>
+									<Button variant="ghost" size="sm" onclick={remove}
+										>Remove</Button
+									>
+								{/if}
+							</div>
 						</div>
 					{:else}
 						<FileInput
 							onfile={choose}
-							class="text-fg-muted hover:border-border-strong hover:text-fg flex size-40 flex-col items-center justify-center gap-2 rounded-full border-2 border-dashed text-xs transition-colors {over
-								? 'border-ring text-fg'
-								: 'border-border'}"
+							class="text-fg-muted hover:text-fg my-5 flex flex-1 flex-col items-center justify-center gap-3 rounded-md text-center text-sm transition-colors"
 						>
-							<Upload class="size-5" aria-hidden="true" />
-							<span>drop or choose</span>
+							<span
+								class="border-border-strong flex size-40 items-center justify-center rounded-full border-2 border-dashed"
+							>
+								<Upload class="size-6" aria-hidden="true" />
+							</span>
+							<span>Drop a portrait here or choose a file.</span>
+							<span class="text-xs"
+								>You crop it to a square next; nothing is written until you review.</span
+							>
 						</FileInput>
 						{#if staged?.kind === 'remove'}
-							<p class="text-fg-muted text-xs">removal staged</p>
-							<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
-						{:else}
-							<p class="text-fg-muted text-xs">no override</p>
+							<div class="mt-auto flex items-center justify-between gap-2">
+								<span class="text-fg-muted text-xs"
+									>The override will be removed.</span
+								>
+								<Button variant="ghost" size="sm" onclick={undo}>Undo</Button>
+							</div>
 						{/if}
 					{/if}
-				</div>
+				</section>
 			{/if}
 		</div>
 
@@ -218,47 +276,6 @@
 		{:else}
 			<p class="text-fg-muted mt-8 text-sm">Nothing in your libraries.</p>
 		{/each}
-
-		{#snippet row(label: string, value: string)}
-			<div class="flex items-center gap-3 py-2">
-				<span class="text-fg-muted w-20 shrink-0 text-xs">{label}</span>
-				<span class="min-w-0 flex-1 truncate font-mono text-xs">{value}</span>
-				<Button
-					variant="ghost"
-					size="icon"
-					label="Copy {label}"
-					onclick={() => copy(value)}
-				>
-					{#if copied === value}
-						<Check class="text-success size-4" aria-hidden="true" />
-					{:else}
-						<Copy class="size-4" aria-hidden="true" />
-					{/if}
-				</Button>
-			</div>
-		{/snippet}
-		<Dialog bind:open={details} title="Details">
-			<div class="divide-border divide-y">
-				{#if actor.tagKey}
-					{@render row('person', actor.tagKey)}
-				{/if}
-				{#if actor.path}
-					{@render row('path', actor.path)}
-				{/if}
-				{#if override}
-					{@render row('image', override.image)}
-					{#if override.resolved}
-						{@render row('resolved', new Date(override.resolved).toLocaleString())}
-					{/if}
-					{#if override.history?.length}
-						{@render row(
-							'moved',
-							`${override.history.length} time${override.history.length === 1 ? '' : 's'}`
-						)}
-					{/if}
-				{/if}
-			</div>
-		</Dialog>
 
 		<PortraitDialog
 			bind:open={editing}
