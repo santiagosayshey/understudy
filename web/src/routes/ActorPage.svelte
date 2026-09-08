@@ -1,30 +1,24 @@
 <script lang="ts">
-	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
-	import {
-		api,
-		ApiError,
-		type ActorPage,
-		type TmdbPerson,
-		type UploadSource,
-	} from '$lib/api/client';
+	import { ArrowLeft, Check, Copy, ImagePlus, Info } from '@lucide/svelte';
+	import { api, ApiError, type ActorPage, type UploadSource } from '$lib/api/client';
 	import { discard, stage, pending } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
-	import FileInput from '$lib/ui/file-input/FileInput.svelte';
 	import Dialog from '$lib/ui/dialog/Dialog.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
 	import Tooltip from '$lib/ui/tooltip/Tooltip.svelte';
 	import { link } from '$lib/router/router.svelte';
 	import PortraitDialog from '$lib/editor/PortraitDialog.svelte';
-	import TmdbPicker from '$lib/editor/TmdbPicker.svelte';
+	import { TmdbLookup } from '$lib/editor/tmdb.svelte';
 
 	let { key, tmdb }: { key: string; tmdb: boolean } = $props();
 
 	let page = $state<ActorPage | null>(null);
 	let error = $state<string | null>(null);
 	let source = $state<UploadSource | null>(null);
-	let tmdbPerson = $state<TmdbPerson | null>(null);
+	// the actor on TMDb, looked up quietly once the page has them
+	const lookup = new TmdbLookup();
 	let editing = $state(false);
 	let over = $state(false);
 	let details = $state(false);
@@ -53,6 +47,9 @@
 	// the current state, including changes made from the drawer
 	$effect(() => {
 		if (pending.revision > 0) load();
+	});
+	$effect(() => {
+		if (tmdb) lookup.load(key);
 	});
 
 	const actor = $derived(page?.actor);
@@ -86,22 +83,19 @@
 	// the person on TMDb and IMDb: their own pages once TMDb found them, a
 	// search for the name until then
 	const tmdbHref = $derived(
-		tmdbPerson
-			? `https://www.themoviedb.org/person/${tmdbPerson.id}`
+		lookup.person
+			? `https://www.themoviedb.org/person/${lookup.person.id}`
 			: `https://www.themoviedb.org/search?query=${encodeURIComponent(actor?.name ?? '')}`
 	);
 	const imdbHref = $derived(
-		tmdbPerson?.imdbId
-			? `https://www.imdb.com/name/${tmdbPerson.imdbId}/`
+		lookup.person?.imdbId
+			? `https://www.imdb.com/name/${lookup.person.imdbId}/`
 			: `https://www.imdb.com/find/?q=${encodeURIComponent(actor?.name ?? '')}`
 	);
 
+	// a file dropped on the portrait skips the picker
 	function choose(f: File) {
 		source = { file: f };
-		editing = true;
-	}
-	function pick(path: string) {
-		source = { tmdb: path };
 		editing = true;
 	}
 	function ondrop(e: DragEvent) {
@@ -186,15 +180,12 @@
 				</div>
 				{#if actor.path}
 					<div class="mt-5 flex flex-wrap items-center gap-2">
-						<FileInput
-							onfile={choose}
-							class="bg-accent text-accent-fg hover:bg-accent-hover inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors"
-						>
-							<Upload class="size-4" aria-hidden="true" />
+						<Button onclick={() => (editing = true)}>
+							<ImagePlus class="size-4" aria-hidden="true" />
 							{override || staged?.kind === 'set'
 								? 'Replace portrait'
 								: 'Choose portrait'}
-						</FileInput>
+						</Button>
 						{#if staged}
 							<Button variant="secondary" onclick={undo}>Undo</Button>
 						{:else if override}
@@ -210,22 +201,10 @@
 							</Tooltip>
 						{/if}
 					</div>
-					<p class="text-fg-muted mt-2 text-xs">
-						Or drop an image on the portrait.
-						{#if !tmdb}Set UNDERSTUDY_TMDB_KEY to pick one from TMDb.{/if}
-					</p>
+					<p class="text-fg-muted mt-2 text-xs">Or drop an image on the portrait.</p>
 				{/if}
 			</div>
 		</div>
-
-		{#if actor.path}
-			<TmdbPicker
-				actorKey={actor.key}
-				enabled={tmdb}
-				bind:person={tmdbPerson}
-				onpick={pick}
-			/>
-		{/if}
 
 		{#each libraries as [library, titles] (library)}
 			<section class="mt-8">
@@ -298,7 +277,8 @@
 			bind:open={editing}
 			actorKey={actor.key}
 			actorName={actor.name}
-			{source}
+			bind:source
+			tmdb={tmdb ? lookup : null}
 			onstaged={load}
 		/>
 	{/if}
