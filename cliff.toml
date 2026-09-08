@@ -18,5 +18,6 @@ commit_parsers = [
   { message = "^docs", group = "<!-- 3 -->Documentation" },
   { message = "^chore\\(deps\\)", group = "<!-- 4 -->Dependencies" },
   { message = "^(chore|ci|build|refactor|style|test)", skip = true },
+  { message = ".*", skip = true },
 ]
 tag_pattern = "v[0-9].*"
