@@ -32,14 +32,15 @@ type File struct {
 // the time it stopped being current. Problem is set when the last run could
 // not resolve the entry; the rest of the entry is then the last known state.
 type Entry struct {
-	Name     string     `json:"name"`
-	TagKey   string     `json:"tagKey,omitempty"`
-	Key      string     `json:"key,omitempty"`
-	Image    string     `json:"image"`
-	Path     string     `json:"path,omitempty"`
-	Resolved string     `json:"resolved,omitempty"`
-	History  []Previous `json:"history,omitempty"`
-	Problem  *Problem   `json:"problem,omitempty"`
+	Name      string     `json:"name"`
+	TagKey    string     `json:"tagKey,omitempty"`
+	Key       string     `json:"key,omitempty"`
+	Image     string     `json:"image"`
+	ImageHash string     `json:"imageHash,omitempty"`
+	Path      string     `json:"path,omitempty"`
+	Resolved  string     `json:"resolved,omitempty"`
+	History   []Previous `json:"history,omitempty"`
+	Problem   *Problem   `json:"problem,omitempty"`
 }
 
 type Previous struct {
@@ -63,11 +64,13 @@ type Drift struct {
 type Changes struct {
 	Added   []string // people who now have a path and did not before
 	Removed []string // people no longer in the configuration
+	Updated []string // people whose image file changed under the same name
 	Drifted []Drift
 }
 
-// Any reports whether the map the proxy serves from is different.
-func (c Changes) Any() bool { return len(c.Added)+len(c.Removed)+len(c.Drifted) > 0 }
+// Any reports whether what Plex would be served is different, which is when
+// its cache has to go.
+func (c Changes) Any() bool { return len(c.Added)+len(c.Removed)+len(c.Updated)+len(c.Drifted) > 0 }
 
 // Load reads the state directory. A missing file is an empty state, which is
 // what a fresh install has.
@@ -123,7 +126,9 @@ func (f *File) Save(dir string) error {
 // state and what changed. A person who resolved to a new path keeps the old
 // one in their history. A person who did not resolve keeps their last known
 // state and carries the problem. People no longer configured are dropped.
-func Apply(prev *File, outcomes []resolve.Outcome, now time.Time) (*File, Changes) {
+// hashes gives the content hash of each entry's image, keyed by image path,
+// so a replaced file is noticed even though nothing else moved.
+func Apply(prev *File, outcomes []resolve.Outcome, hashes map[string]string, now time.Time) (*File, Changes) {
 	stamp := now.UTC().Format(time.RFC3339)
 	next := &File{Version: 1, Ran: stamp}
 	var ch Changes
@@ -133,11 +138,14 @@ func Apply(prev *File, outcomes []resolve.Outcome, now time.Time) (*File, Change
 		if idx >= 0 {
 			used[idx] = true
 		}
-		e := Entry{Name: o.Entry.Name, TagKey: o.Entry.TagKey, Image: o.Entry.Image}
+		e := Entry{Name: o.Entry.Name, TagKey: o.Entry.TagKey, Image: o.Entry.Image, ImageHash: hashes[o.Entry.Image]}
 		if old != nil {
 			e.TagKey, e.Key, e.Path, e.Resolved, e.History = old.TagKey, old.Key, old.Path, old.Resolved, old.History
 			if e.TagKey == "" {
 				e.TagKey = o.Entry.TagKey
+			}
+			if old.Path != "" && old.ImageHash != "" && e.ImageHash != "" && old.ImageHash != e.ImageHash {
+				ch.Updated = append(ch.Updated, o.Entry.Name)
 			}
 		}
 		if o.Person != nil {
