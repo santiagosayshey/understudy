@@ -11,6 +11,7 @@
 	import Notice from '$lib/ui/notice/Notice.svelte';
 	import Search from './routes/Search.svelte';
 	import ActorPage from './routes/ActorPage.svelte';
+	import TitlePage from './routes/TitlePage.svelte';
 
 	let status = $state<Status | null>(null);
 	let review = $state(false);
@@ -34,6 +35,7 @@
 	});
 
 	const actor = $derived(match('/actors/:key', route.path));
+	const title = $derived(match('/titles/:ratingKey', route.path));
 	const count = $derived(pending.list.length);
 
 	async function doApply() {
@@ -54,6 +56,10 @@
 	{#if actor}
 		{#key actor.key}
 			<ActorPage key={actor.key} />
+		{/key}
+	{:else if title}
+		{#key title.ratingKey}
+			<TitlePage ratingKey={title.ratingKey} />
 		{/key}
 	{:else}
 		<Search listing={status?.listing ?? null} />

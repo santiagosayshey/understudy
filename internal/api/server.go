@@ -35,6 +35,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /api/actors", s.actors)
 	mux.HandleFunc("GET /api/actors/{key}", s.actor)
+	mux.HandleFunc("GET /api/titles/{ratingKey}", s.title)
 	mux.HandleFunc("POST /api/actors/refresh", s.refresh)
 	mux.HandleFunc("GET /api/images/cdn", s.cdnImage)
 	mux.HandleFunc("GET /api/images/poster/{ratingKey}", s.poster)
@@ -212,6 +213,37 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Marked is an actor with the editor's marks: whether an override exists
+// and which file it is, a pending change, and drift.
+type Marked struct {
+	Actor
+	Override bool   `json:"override"`
+	Image    string `json:"image,omitempty"`  // the override's file, for showing it
+	Staged   string `json:"staged,omitempty"` // set or remove, when a change is pending
+	StagedAt string `json:"stagedAt,omitempty"`
+	Drift    bool   `json:"drift"`
+}
+
+// mark looks the actor up in the configuration, by person id when one is
+// known and by name otherwise, and in the staging area.
+func (s *Server) mark(a Actor, tagKey string, entries []config.Entry, stateFile *state.File) Marked {
+	m := Marked{Actor: a}
+	e := entryFor(entries, a.Name)
+	if tagKey != "" {
+		e = entryForActor(entries, a.Name, tagKey)
+	}
+	if e != nil {
+		m.Override, m.Image = true, e.Image
+		if se := stateEntryFor(stateFile, e); se != nil && se.Path != "" && se.Path != a.Path {
+			m.Drift = true
+		}
+	}
+	if c, ok := s.Staging.Change(a.Key); ok {
+		m.Staged, m.StagedAt = c.Kind, c.StagedAt.Format("20060102150405")
+	}
+	return m
+}
+
 // actors searches the listing and marks people who already have an override.
 func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 	st := s.Listing.Status()
@@ -221,35 +253,43 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, _ := s.entries()
 	stateFile, _ := state.Load(s.StateDir)
-	type result struct {
-		Actor
-		Override bool   `json:"override"`
-		Image    string `json:"image,omitempty"`  // the override's file, for showing it
-		Staged   string `json:"staged,omitempty"` // set or remove, when a change is pending
-		StagedAt string `json:"stagedAt,omitempty"`
-		Drift    bool   `json:"drift"`
-	}
 	matches, total := s.Listing.Search(r.URL.Query().Get("q"), 60)
-	var out []result
+	out := make([]Marked, 0, len(matches))
 	for _, a := range matches {
-		res := result{Actor: a}
-		if e := entryFor(entries, a.Name); e != nil {
-			res.Override = true
-			res.Image = e.Image
-			if se := stateEntryFor(stateFile, e); se != nil && se.Path != "" && se.Path != a.Path {
-				res.Drift = true
-			}
-		}
-		if c, ok := s.Staging.Change(a.Key); ok {
-			res.Staged = c.Kind
-			res.StagedAt = c.StagedAt.Format("20060102150405")
-		}
-		out = append(out, res)
-	}
-	if out == nil {
-		out = []result{}
+		out = append(out, s.mark(a, "", entries, stateFile))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"results": out, "total": total})
+}
+
+// title is one movie or show with its cast, each marked like a search
+// result, for the title page.
+func (s *Server) title(w http.ResponseWriter, r *http.Request) {
+	if !s.Listing.Status().Loaded {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "the actor listing is still loading"})
+		return
+	}
+	info, cast, ok, err := s.Listing.Title(r.Context(), r.PathValue("ratingKey"))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no title with that key"})
+		return
+	}
+	entries, _ := s.entries()
+	stateFile, _ := state.Load(s.StateDir)
+	type member struct {
+		Marked
+		TagKey string `json:"tagKey,omitempty"`
+		Role   string `json:"role,omitempty"`
+		Listed bool   `json:"listed"`
+	}
+	out := make([]member, 0, len(cast))
+	for _, c := range cast {
+		out = append(out, member{Marked: s.mark(c.Actor, c.TagKey, entries, stateFile), TagKey: c.TagKey, Role: c.Role, Listed: c.Listed})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"title": info, "cast": out})
 }
 
 // actor is one person with their titles, the configuration entry if any,

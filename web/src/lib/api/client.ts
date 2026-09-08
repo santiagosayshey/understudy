@@ -61,6 +61,13 @@ export type Change = {
 
 export type ActorPage = { actor: Detail; override?: Override; staged?: Change };
 
+export type CastMember = Actor & { tagKey?: string; role?: string; listed: boolean };
+
+export type TitlePage = {
+	title: { ratingKey: string; name: string; year?: number; type: string; library: string };
+	cast: CastMember[];
+};
+
 export type Box = { x: number; y: number; size: number };
 
 export type UploadInfo = {
@@ -153,6 +160,8 @@ export const api = {
 			headers: { 'Content-Type': 'application/octet-stream' },
 		}),
 	uploadImage: (id: string) => `/api/uploads/${id}`,
+	title: (ratingKey: string) =>
+		request<TitlePage>(`/api/titles/${encodeURIComponent(ratingKey)}`),
 	changes: () => request<Change[]>('/api/changes'),
 	stage: (body: {
 		key: string;

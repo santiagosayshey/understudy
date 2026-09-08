@@ -19,6 +19,7 @@ type Person struct {
 	TagKey string
 	Thumb  string
 	Titles []string
+	Roles  map[string]string // character by rating key, when known
 }
 
 // Title is one movie or show.
@@ -97,16 +98,30 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		writeContainer(w, "Metadata", meta)
 	case strings.HasPrefix(path, "/library/metadata/"):
 		rk := strings.TrimPrefix(path, "/library/metadata/")
+		title, ok := s.title(rk)
+		if !ok {
+			writeContainer(w, "Metadata", []map[string]any{})
+			return
+		}
 		var roles []map[string]any
 		for _, p := range s.lib.People {
 			for _, t := range p.Titles {
 				if t == rk {
 					id, _ := json.Number(p.Key).Int64() // the real server sends role ids as numbers
-					roles = append(roles, map[string]any{"id": id, "tag": p.Name, "tagKey": p.TagKey, "thumb": p.Thumb})
+					roles = append(roles, map[string]any{"id": id, "tag": p.Name, "tagKey": p.TagKey, "thumb": p.Thumb, "role": p.Roles[rk]})
 				}
 			}
 		}
-		writeContainer(w, "Metadata", []map[string]any{{"ratingKey": rk, "Role": roles}})
+		var sectionType, sectionTitle string
+		for _, sec := range s.lib.Sections {
+			if sec.Key == title.Section {
+				sectionType, sectionTitle = sec.Type, sec.Title
+			}
+		}
+		writeContainer(w, "Metadata", []map[string]any{{
+			"ratingKey": rk, "title": title.Name, "year": title.Year, "type": sectionType,
+			"librarySectionTitle": sectionTitle, "Role": roles,
+		}})
 	default:
 		http.NotFound(w, r)
 	}
@@ -148,7 +163,7 @@ func Sample() Library {
 			{RatingKey: "102", Name: "Euphoria", Year: 2019, Section: "2"},
 		},
 		People: []Person{
-			{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Thumb: "https://metadata-static.plex.tv/f/people/fe158d30be9278d335acd7a92037b20b.jpg", Titles: []string{"19335", "12583"}},
+			{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Thumb: "https://metadata-static.plex.tv/f/people/fe158d30be9278d335acd7a92037b20b.jpg", Titles: []string{"19335", "12583"}, Roles: map[string]string{"12583": "Jessie"}},
 			{Key: "6755", Name: "Jacob Elordi", TagKey: "5d7769e1fb0d55001f533217", Thumb: "https://metadata-static.plex.tv/d/people/df243843965949c6b502cd1c0c056648.jpg", Titles: []string{"19335", "102"}},
 			{Key: "300", Name: "Anthony Edwards", TagKey: "5d776825880197001ec9003b", Thumb: "https://metadata-static.plex.tv/a/people/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg", Titles: []string{"100"}},
 			{Key: "301", Name: "Anthony Edwards", TagKey: "5d776825880197001ec901a4", Thumb: "https://metadata-static.plex.tv/b/people/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg", Titles: []string{"101"}},

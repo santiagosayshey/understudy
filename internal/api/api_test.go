@@ -183,3 +183,29 @@ func TestApplySharedName(t *testing.T) {
 		t.Fatalf("wrong person removed: %+v", cfg.People)
 	}
 }
+
+func TestTitle(t *testing.T) {
+	l := loadedListing(t)
+	info, cast, ok, err := l.Title(context.Background(), "12583")
+	if err != nil || !ok {
+		t.Fatalf("title: ok=%v err=%v", ok, err)
+	}
+	if info.Name != "Civil War" || info.Year != 2024 || info.Library != "Movies" || info.Type != "movie" {
+		t.Errorf("got %+v", info)
+	}
+	var cailee *CastMember
+	for i := range cast {
+		if cast[i].Name == "Cailee Spaeny" {
+			cailee = &cast[i]
+		}
+	}
+	if cailee == nil {
+		t.Fatalf("Cailee Spaeny missing from the cast: %+v", cast)
+	}
+	if !cailee.Listed || cailee.Key != "27126" || cailee.Role != "Jessie" || cailee.TagKey == "" || cailee.Path == "" {
+		t.Errorf("got %+v", *cailee)
+	}
+	if _, _, ok, err := l.Title(context.Background(), "999"); err != nil || ok {
+		t.Errorf("unknown title: ok=%v err=%v", ok, err)
+	}
+}
