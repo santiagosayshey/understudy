@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/santiagosayshey/understudy/internal/config"
@@ -18,14 +20,15 @@ import (
 )
 
 // runSync resolves the configuration against Plex and writes the state file
-// the proxy serves from. It validates first and stops on any error, so a
-// broken configuration never reaches the state.
+// the proxy serves from. It runs once and exits, or, given an interval, on
+// start and then on that interval until stopped.
 func runSync(args []string) int {
 	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
 	var c common
 	c.bind(fs)
 	stateDir := fs.String("state", envOr("UNDERSTUDY_STATE", "/state"), "directory the state file is written to")
 	cacheDir := fs.String("plex-cache", envOr("UNDERSTUDY_PLEX_CACHE", ""), "Plex's Cache/PhotoTranscoder directory, cleared when something changed; nothing is cleared without it")
+	every := fs.String("every", envOr("UNDERSTUDY_EVERY", ""), "run on start and then this often, such as 1h; without it, run once and exit")
 	if err := fs.Parse(args); err != nil {
 		return exitFailed
 	}
@@ -33,6 +36,30 @@ func runSync(args []string) int {
 		fmt.Fprintln(os.Stderr, "sync: a Plex address is required (--plex-url or UNDERSTUDY_PLEX_URL)")
 		return exitFailed
 	}
+	if *every == "" {
+		return syncOnce(context.Background(), c, *stateDir, *cacheDir)
+	}
+	interval, err := time.ParseDuration(*every)
+	if err != nil || interval <= 0 {
+		fmt.Fprintf(os.Stderr, "sync: --every wants a duration such as 1h, got %q\n", *every)
+		return exitFailed
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	for {
+		syncOnce(ctx, c, *stateDir, *cacheDir)
+		fmt.Printf("sync: next run in %s\n", interval)
+		select {
+		case <-ctx.Done():
+			return exitClean
+		case <-time.After(interval):
+		}
+	}
+}
+
+// syncOnce is one run. It validates first and stops on any error, so a
+// broken configuration never reaches the state.
+func syncOnce(ctx context.Context, c common, stateDir, cacheDir string) int {
 	cfg, err := config.Load(c.config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sync:", err)
@@ -46,13 +73,13 @@ func runSync(args []string) int {
 		fmt.Fprintln(os.Stderr, "sync: the configuration has problems; nothing written")
 		return exitFailed
 	}
-	prev, err := state.Load(*stateDir)
+	prev, err := state.Load(stateDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sync:", err)
 		return exitFailed
 	}
 	r := &resolve.Resolver{Plex: plex.New(c.plexURL, c.plexToken)}
-	outcomes, err := r.Resolve(context.Background(), cfg.People)
+	outcomes, err := r.Resolve(ctx, cfg.People)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sync:", err)
 		return exitFailed
@@ -64,15 +91,15 @@ func runSync(args []string) int {
 	}
 	next, changes := state.Apply(prev, outcomes, hashes, time.Now())
 	var cleared int
-	if changes.Any() && *cacheDir != "" {
-		n, err := plex.ClearCache(*cacheDir)
+	if changes.Any() && cacheDir != "" {
+		n, err := plex.ClearCache(cacheDir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "sync:", err)
 			return exitFailed
 		}
 		cleared, next.CacheCleared = n, true
 	}
-	if err := next.Save(*stateDir); err != nil {
+	if err := next.Save(stateDir); err != nil {
 		fmt.Fprintln(os.Stderr, "sync:", err)
 		return exitFailed
 	}
@@ -84,10 +111,10 @@ func runSync(args []string) int {
 		fmt.Printf("updated  %s  image changed\n", n)
 	}
 	fmt.Printf("state: %d added, %d removed, %d updated, %d drifted; written to %s\n",
-		len(changes.Added), len(changes.Removed), len(changes.Updated), len(changes.Drifted), filepath.Join(*stateDir, state.FileName))
+		len(changes.Added), len(changes.Removed), len(changes.Updated), len(changes.Drifted), filepath.Join(stateDir, state.FileName))
 	switch {
 	case next.CacheCleared:
-		fmt.Printf("cache: cleared %d entries from %s; clients pick up the change on their next fetch\n", cleared, *cacheDir)
+		fmt.Printf("cache: cleared %d entries from %s; clients pick up the change on their next fetch\n", cleared, cacheDir)
 	case changes.Any():
 		fmt.Println("cache: not configured, nothing cleared; Plex keeps showing its cached portraits until its photo cache is cleared")
 	default:

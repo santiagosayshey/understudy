@@ -101,7 +101,7 @@ The cache clear deletes the contents of Plex's photo cache directory, and refuse
 
 ### Scheduling and the report
 
-The job runs only when invoked. There is no timer inside Understudy. The user runs it after a configuration change and on whatever schedule they choose. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that finds nothing changed is cheap and touches nothing.
+The job runs once and exits, or, given an interval, on start and then on that interval until stopped. The interval is the longest a drifted portrait can show Plex's picture before the next run corrects it. A run that finds nothing changed is cheap and touches nothing.
 
 The report lists every entry with its outcome, each drift as the old and new path, every problem, and whether the cache was cleared. The exit status uses the same three-way split as validation: clean, completed with problems, could not complete.
 
@@ -162,6 +162,7 @@ Every setting is a flag with an environment variable of the same name under `UND
 | `--plex-url URL` | none | `sync`, `validate`, `edit` |
 | `--plex-token TOKEN` | none | `sync`, `validate`, `edit`. Omitted when the URL is a proxy that injects it |
 | `--plex-cache DIR` | none | `sync`. Plex's `Cache/PhotoTranscoder` directory. Without it no clear happens and the report says so. Any other directory name is refused |
+| `--every DURATION` | none | `sync`. Run on start and then this often. Without it, once |
 | `--cdn URL` | `https://metadata-static.plex.tv` | `proxy`. Changed only in tests |
 | `--listen ADDR` | `:443` for `proxy`, `:8090` for `edit` | `proxy`, `edit` |
 | `--status-listen ADDR` | `:8091` | `proxy`, a plain HTTP port for health and status |
@@ -204,7 +205,7 @@ The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own ui l
 
 ### Certificates
 
-`understudy cert --out DIR` writes `ca.crt`, `ca.key`, `leaf.crt` and `leaf.key`: EC P-256, ten years, the leaf carrying the CDN hostname as its subject alternative name. It refuses to overwrite. The proxy reads the leaf pair, the Plex container gets `ca.crt`, and `ca.key` is not needed again.
+`understudy cert --out DIR` writes `ca.crt`, `ca.key`, `leaf.crt` and `leaf.key`: EC P-256, ten years, the leaf carrying the CDN hostname as its subject alternative name. It also writes `plex/10-understudy-ca.sh`, the Plex container's startup script with the authority embedded in it. It refuses to overwrite. The proxy reads the leaf pair, the Plex container mounts `plex/`, and `ca.key` is not needed again.
 
 ## Deploying
 
@@ -213,13 +214,13 @@ The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own ui l
 Two additions and a normal recreate:
 
 1. `extra_hosts` mapping the CDN hostname to the proxy's address. Only that name is redirected. It works under host networking, which is how Plex is usually run.
-2. `ca.crt` mounted, and a startup hook that installs it. On the linuxserver image that is an executable in `/custom-cont-init.d` that copies the file into `/usr/local/share/ca-certificates` and runs `update-ca-certificates`. It runs on every start, so image upgrades keep the trust. The hook ships in `contrib/`.
+2. The `plex/` directory `cert` wrote, mounted at `/custom-cont-init.d`. The linuxserver image runs whatever is there on every start; the script writes the embedded authority into `/usr/local/share/ca-certificates` and runs `update-ca-certificates`, so image upgrades keep the trust.
 
 The proxy needs a fixed address the Plex container can reach on port 443. On Docker that is `ipv4_address` on a user-defined bridge network, which a host-networked Plex reaches through the bridge. Verified on Docker under WSL2. Not yet verified on Unraid, where one `curl` from the host to that address settles it.
 
 ### All in one
 
-Two services from one image, the resolving job run by host cron, and a Plex service with the two additions.
+Three services from one image, the resolving job on an interval, and a Plex service with the two additions.
 
 ```yaml
 services:
@@ -228,7 +229,7 @@ services:
     command: proxy
     user: "1000:1000"   # the owner of certs/, so leaf.key (0600) is readable by the non-root image
     volumes:
-      - ./configuration.yml:/config/configuration.yml:ro
+      - ./config:/config:ro
       - ./portraits:/portraits:ro
       - ./certs:/certs:ro
       - ./state:/state
@@ -242,30 +243,28 @@ services:
       UNDERSTUDY_PLEX_URL: http://localhost:32400
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
     volumes:
-      - ./configuration.yml:/config/configuration.yml
+      - ./config:/config
       - ./portraits:/portraits
       - ./state:/state:ro
     ports:
       - "127.0.0.1:8090:8090"
   sync:
     image: ghcr.io/santiagosayshey/understudy:latest
-    command: sync
-    profiles: [tools]                       # never started by `up`; run by cron
+    command: sync --every 1h
     environment:
       UNDERSTUDY_PLEX_URL: http://localhost:32400
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
-      UNDERSTUDY_PLEX_CACHE: /plex-cache
+      UNDERSTUDY_PLEX_CACHE: /plex/PhotoTranscoder
     volumes:
-      - ./configuration.yml:/config/configuration.yml:ro
+      - ./config:/config:ro
       - ./portraits:/portraits:ro
       - ./state:/state
-      - /path/to/plex/Cache/PhotoTranscoder:/plex-cache
+      - /path/to/plex/Cache/PhotoTranscoder:/plex/PhotoTranscoder
   plex:
     extra_hosts:
       - "metadata-static.plex.tv:172.31.250.10"
     volumes:
-      - ./certs/ca.crt:/understudy/ca.crt:ro
-      - ./contrib/plex:/custom-cont-init.d:ro
+      - ./certs/plex:/custom-cont-init.d:ro
 networks:
   understudy:
     ipam:
@@ -273,7 +272,7 @@ networks:
         - subnet: 172.31.250.0/24
 ```
 
-The cron line is `docker compose run --rm sync`, on whatever interval the user chooses.
+Without `--every` the job runs once and exits, for scripts.
 
 ### Split
 
@@ -313,7 +312,7 @@ internal/api/        HTTP handlers for the editor
 internal/certs/      certificate generation
 web/                 Svelte app: Vite, TypeScript, Tailwind; the ui library under src/lib/ui
 embed.go             embeds web/dist
-contrib/             the Plex container hook, compose examples
+contrib/             compose examples
 docs/                this document and the user docs
 ```
 
@@ -332,7 +331,7 @@ Each is one or two pull requests and ends with something that runs.
 1. **Bootstrap.** Branch, Go module, web scaffold, editorconfig, lint and format script, CI, Renovate, Dockerfile, release workflow. Done when a push to `develop` produces an image that serves a placeholder page.
 2. **Configuration and resolving.** Plex client with its fake, configuration loader, resolver, state file, drift diff, `validate` and `sync`. Done when `sync` writes a correct state file from the real library and `validate` reports a misspelled and an ambiguous name.
 3. **Proxy.** `cert` and `proxy`, the TLS listener, the map with reload, verified passthrough, centre-crop, the status port. Done when the lab Plex container fetches an override through the proxy and passes everything else through.
-4. **Cache clear and Plex hook.** `sync` clears the photo cache when the map changed, the hook script in `contrib/`, the compose examples. Done when a change made on disk shows in the lab Plex after one `sync` and one hard refresh.
+4. **Cache clear and Plex hook.** `sync` clears the photo cache when the map changed, the Plex hook, the compose examples. Done when a change made on disk shows in the lab Plex after one `sync` and one hard refresh.
 5. **Editor.** `edit`: the API, the actor grid, the actor page, upload and crop, save and remove, the drift indicator. Done when a portrait chosen on a workstation lands in the configuration as a 1000 pixel square with a correct entry.
 6. **Docs and release.** README and CONTRIBUTING, the compose examples and the Plex hook documented. Done when the first version tag exists and a server serves a portrait from the tagged image.
 
