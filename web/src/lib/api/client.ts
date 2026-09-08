@@ -21,8 +21,18 @@ export type Actor = {
 	path?: string;
 	libraries: string[];
 	override: boolean;
+	image?: string;
+	staged?: 'set' | 'remove';
+	stagedAt?: string;
 	drift: boolean;
 };
+
+/** What Plex will serve for an actor once everything is applied. */
+export function servedPortrait(a: Actor, w = 96): string | undefined {
+	if (a.staged === 'set') return api.changeImage(a.key, a.stagedAt);
+	if (a.override && a.staged !== 'remove' && a.image) return api.portraitImage(a.image);
+	return a.path ? api.cdnImage(a.path, w) : undefined;
+}
 
 export type Title = { ratingKey: string; name: string; year?: number; library: string };
 

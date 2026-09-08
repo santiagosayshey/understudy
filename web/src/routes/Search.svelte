@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { api, prefetchActors, type Actor, type ListingStatus } from '$lib/api/client';
+	import {
+		api,
+		prefetchActors,
+		servedPortrait,
+		type Actor,
+		type ListingStatus,
+	} from '$lib/api/client';
 	import Input from '$lib/ui/input/Input.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
@@ -158,18 +164,16 @@
 							? 'bg-surface-hover'
 							: ''}"
 					>
-						<Avatar
-							src={actor.path ? api.cdnImage(actor.path, 96) : undefined}
-							alt=""
-							size="md"
-						/>
+						<Avatar src={servedPortrait(actor)} alt="" size="md" />
 						<span class="min-w-0 flex-1">
 							<span class="block truncate font-medium">{actor.name}</span>
 							<span class="text-fg-muted block truncate text-xs"
 								>{actor.libraries.join(', ')}</span
 							>
 						</span>
-						{#if actor.drift}
+						{#if actor.staged}
+							<Badge tone="warning">staged</Badge>
+						{:else if actor.drift}
 							<Badge tone="warning">drift</Badge>
 						{:else if actor.override}
 							<Badge tone="success">override</Badge>

@@ -202,8 +202,11 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 	stateFile, _ := state.Load(s.StateDir)
 	type result struct {
 		Actor
-		Override bool `json:"override"`
-		Drift    bool `json:"drift"`
+		Override bool   `json:"override"`
+		Image    string `json:"image,omitempty"`  // the override's file, for showing it
+		Staged   string `json:"staged,omitempty"` // set or remove, when a change is pending
+		StagedAt string `json:"stagedAt,omitempty"`
+		Drift    bool   `json:"drift"`
 	}
 	matches, total := s.Listing.Search(r.URL.Query().Get("q"), 60)
 	var out []result
@@ -211,9 +214,14 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 		res := result{Actor: a}
 		if e := entryFor(entries, a.Name); e != nil {
 			res.Override = true
+			res.Image = e.Image
 			if se := stateEntryFor(stateFile, e); se != nil && se.Path != "" && se.Path != a.Path {
 				res.Drift = true
 			}
+		}
+		if c, ok := s.Staging.Change(a.Key); ok {
+			res.Staged = c.Kind
+			res.StagedAt = c.StagedAt.Format("20060102150405")
 		}
 		out = append(out, res)
 	}
