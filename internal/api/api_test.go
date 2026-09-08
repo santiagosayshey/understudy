@@ -93,13 +93,13 @@ func TestStagingApply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Stage(&Change{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Kind: "set", Image: Slug("Cailee Spaeny"), portrait: out})
+	s.Stage(&Change{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Kind: "set", Image: Slug("Cailee Spaeny", ""), portrait: out})
 	s.Stage(&Change{Key: "999", Name: "Someone Else", Kind: "remove"})
 	if len(s.Changes()) != 2 {
 		t.Fatalf("staged: %d", len(s.Changes()))
 	}
 	// staging again for the same person replaces the earlier change
-	s.Stage(&Change{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Kind: "set", Image: Slug("Cailee Spaeny"), portrait: out})
+	s.Stage(&Change{Key: "27126", Name: "Cailee Spaeny", TagKey: "5d7769e1fb0d55001f533216", Kind: "set", Image: Slug("Cailee Spaeny", ""), portrait: out})
 	if len(s.Changes()) != 2 {
 		t.Fatalf("restaging must replace: %d", len(s.Changes()))
 	}
@@ -141,8 +141,45 @@ func TestStagingApply(t *testing.T) {
 
 func TestSlug(t *testing.T) {
 	for in, want := range map[string]string{"Cailee Spaeny": "cailee-spaeny.jpg", "Raúl Castillo": "raul-castillo.jpg", "K Callan": "k-callan.jpg", "  ": "portrait.jpg"} {
-		if got := Slug(in); got != want {
+		if got := Slug(in, ""); got != want {
 			t.Errorf("%q: got %q want %q", in, got, want)
 		}
+	}
+	if got := Slug("Anthony Edwards", "5d776825880197001ec9003b"); got != "anthony-edwards-1ec9003b.jpg" {
+		t.Errorf("shared name: %q", got)
+	}
+}
+
+// Two people with the same name are two entries, two files, and never
+// overwrite each other.
+func TestApplySharedName(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "configuration.yml")
+	portraits := filepath.Join(dir, "portraits")
+	os.MkdirAll(portraits, 0o755)
+	os.WriteFile(cfgFile, []byte("version: 1\npeople: []\n"), 0o644)
+	data := upload(t)
+	out, _ := crop.Square(data, crop.Box{X: 0, Y: 0, Size: 600})
+	s := NewStaging()
+	s.Stage(&Change{Key: "300", Name: "Anthony Edwards", TagKey: "5d776825880197001ec9003b", Kind: "set", Image: Slug("Anthony Edwards", "5d776825880197001ec9003b"), portrait: out})
+	s.Stage(&Change{Key: "301", Name: "Anthony Edwards", TagKey: "5d776825880197001ec901a4", Kind: "set", Image: Slug("Anthony Edwards", "5d776825880197001ec901a4"), portrait: out})
+	if _, err := s.Apply(context.Background(), cfgFile, portraits); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := config.Load(cfgFile)
+	if len(cfg.People) != 2 || cfg.People[0].Image == cfg.People[1].Image {
+		t.Fatalf("shared name must produce two entries with distinct files: %+v", cfg.People)
+	}
+	if problems := config.Validate(cfg, portraits); len(problems) != 0 {
+		t.Fatalf("must validate: %v", problems)
+	}
+	// removing one leaves the other untouched
+	s.Stage(&Change{Key: "300", Name: "Anthony Edwards", TagKey: "5d776825880197001ec9003b", Kind: "remove"})
+	if _, err := s.Apply(context.Background(), cfgFile, portraits); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = config.Load(cfgFile)
+	if len(cfg.People) != 1 || cfg.People[0].TagKey != "5d776825880197001ec901a4" {
+		t.Fatalf("wrong person removed: %+v", cfg.People)
 	}
 }

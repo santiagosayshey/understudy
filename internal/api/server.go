@@ -128,11 +128,24 @@ func (s *Server) stage(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
-		c.Image = Slug(d.Name)
+		// a shared name gets the person id in the file name
+		var shared bool
+		if matches, _ := s.Listing.Search(d.Name, 10); len(matches) > 1 {
+			for _, m := range matches {
+				if m.Key != d.Key && strings.EqualFold(m.Name, d.Name) {
+					shared = true
+				}
+			}
+		}
+		if shared {
+			c.Image = Slug(d.Name, d.TagKey)
+		} else {
+			c.Image = Slug(d.Name, "")
+		}
 		c.portrait = out
 	case "remove":
 		entries, _ := s.entries()
-		if entryFor(entries, d.Name) == nil {
+		if entryForActor(entries, d.Name, d.TagKey) == nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "there is no override to remove"})
 			return
 		}
@@ -250,7 +263,7 @@ func (s *Server) actor(w http.ResponseWriter, r *http.Request) {
 	entries, _ := s.entries()
 	stateFile, _ := state.Load(s.StateDir)
 	out := map[string]any{"actor": d}
-	if e := entryFor(entries, d.Name); e != nil {
+	if e := entryForActor(entries, d.Name, d.TagKey); e != nil {
 		override := map[string]any{"name": e.Name, "tagKey": e.TagKey, "image": e.Image}
 		if se := stateEntryFor(stateFile, e); se != nil {
 			override["path"] = se.Path
@@ -327,11 +340,22 @@ func (s *Server) entries() ([]config.Entry, error) {
 	return cfg.People, nil
 }
 
+// entryFor matches by name alone, for the search results, which do not know
+// person ids. Two people sharing a name both show as overridden when one is.
 func entryFor(entries []config.Entry, name string) *config.Entry {
 	for i := range entries {
 		if strings.EqualFold(strings.TrimSpace(entries[i].Name), name) {
 			return &entries[i]
 		}
+	}
+	return nil
+}
+
+// entryForActor matches the way apply does: by person id when both sides
+// know it, by name only for entries without one.
+func entryForActor(entries []config.Entry, name, tagKey string) *config.Entry {
+	if i := indexOf(entries, name, tagKey); i >= 0 {
+		return &entries[i]
 	}
 	return nil
 }

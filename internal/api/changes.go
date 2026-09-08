@@ -136,13 +136,7 @@ func (s *Staging) Apply(ctx context.Context, configFile, portraits string) (Appl
 	}
 	sortChanges(pending)
 	for _, c := range pending {
-		idx := -1
-		for i, e := range cfg.People {
-			if c.TagKey != "" && e.TagKey == c.TagKey || strings.EqualFold(strings.TrimSpace(e.Name), c.Name) {
-				idx = i
-				break
-			}
-		}
+		idx := indexOf(cfg.People, c.Name, c.TagKey)
 		switch c.Kind {
 		case "set":
 			file := filepath.Join(portraits, filepath.FromSlash(c.Image))
@@ -193,11 +187,39 @@ func writeConfig(file string, cfg *config.Config) error {
 	return os.Rename(tmp, file)
 }
 
+// indexOf finds the entry for a person. Two people can share a name, so a
+// known person id wins: an entry with a different id is a different person,
+// and only an entry with no id at all is matched by name.
+func indexOf(entries []config.Entry, name, tagKey string) int {
+	for i, e := range entries {
+		if tagKey != "" && e.TagKey != "" {
+			if e.TagKey == tagKey {
+				return i
+			}
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(e.Name), name) {
+			return i
+		}
+	}
+	return -1
+}
+
 var unsafe = regexp.MustCompile(`[^a-z0-9]+`)
 
 // Slug names a portrait file from a person's name: "Cailee Spaeny" becomes
-// cailee-spaeny.jpg and "Raúl Castillo" raul-castillo.jpg.
-func Slug(name string) string {
+// cailee-spaeny.jpg and "Raúl Castillo" raul-castillo.jpg. When the name is
+// shared, pass the person id to keep the files apart. Its tail is used, since
+// the head of a Plex id is a timestamp that many ids share.
+func Slug(name, tagKey string) string {
+	s := slug(name)
+	if tagKey != "" {
+		s += "-" + tagKey[max(0, len(tagKey)-8):]
+	}
+	return s + ".jpg"
+}
+
+func slug(name string) string {
 	plain, _, err := transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), name)
 	if err != nil {
 		plain = name
@@ -206,5 +228,5 @@ func Slug(name string) string {
 	if s == "" {
 		s = "portrait"
 	}
-	return s + ".jpg"
+	return s
 }
