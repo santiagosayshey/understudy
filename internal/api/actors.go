@@ -131,7 +131,7 @@ func (l *Listing) Get(key string) (Actor, bool) {
 // that starts with it, then names that contain it. It returns the first
 // limit matches and how many there were in all.
 func (l *Listing) Search(q string, limit int) ([]Actor, int) {
-	q = norm(q)
+	q = normName(q)
 	if q == "" {
 		return nil, 0
 	}
@@ -139,7 +139,7 @@ func (l *Listing) Search(q string, limit int) ([]Actor, int) {
 	defer l.mu.RUnlock()
 	var starts, words, inside []Actor
 	for _, a := range l.actors {
-		n := norm(a.Name)
+		n := normName(a.Name)
 		switch {
 		case strings.HasPrefix(n, q):
 			starts = append(starts, a)
@@ -166,7 +166,7 @@ func wordPrefix(name, q string) bool {
 	return false
 }
 
-func norm(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), " ")) }
+func normName(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), " ")) }
 
 // Detail is one actor with everything the page shows to confirm identity.
 type Detail struct {

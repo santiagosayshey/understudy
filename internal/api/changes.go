@@ -9,7 +9,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v3"
 
 	"github.com/santiagosayshey/understudy/internal/config"
@@ -192,9 +196,13 @@ func writeConfig(file string, cfg *config.Config) error {
 var unsafe = regexp.MustCompile(`[^a-z0-9]+`)
 
 // Slug names a portrait file from a person's name: "Cailee Spaeny" becomes
-// cailee-spaeny.jpg.
+// cailee-spaeny.jpg and "Raúl Castillo" raul-castillo.jpg.
 func Slug(name string) string {
-	s := strings.Trim(unsafe.ReplaceAllString(strings.ToLower(name), "-"), "-")
+	plain, _, err := transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), name)
+	if err != nil {
+		plain = name
+	}
+	s := strings.Trim(unsafe.ReplaceAllString(strings.ToLower(plain), "-"), "-")
 	if s == "" {
 		s = "portrait"
 	}

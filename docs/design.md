@@ -179,23 +179,28 @@ Every setting is a flag with an environment variable of the same name under `UND
 
 Serves the embedded page and a JSON API under `/api` on the listen address. It loads every actor from Plex once at start and keeps the listing in memory, since a listing takes several seconds per library.
 
+Edits are staged, not written. Choosing a portrait uploads the file, the crop happens in a dialog, and "Stage" cuts the square on the server and holds it in memory with the entry it would produce. A removal is staged the same way. Staged changes appear in a review drawer, each with before and after portraits, and "Apply" writes them all to the configuration file and the portraits directory in one go. Nothing on disk changes before that. The file is rewritten from its parsed form, so hand-written comments do not survive an apply; entries and their order do.
+
 | Method and path | Purpose |
 | --- | --- |
-| `GET /api/status` | Version, configuration and state summary, last resolve time |
-| `GET /api/actors` | Every actor across movie and show libraries: key, name, path, libraries. Optional `q` filters by name |
+| `GET /api/status` | Version, listing state, override count, pending change count |
+| `GET /api/actors?q=` | Search the listing: the first 60 matches with key, name, path, libraries, override, staged and drift flags, and the total |
+| `GET /api/actors/{key}` | One actor: name, path, person id, titles by library, the configuration entry with its state, and any staged change |
 | `POST /api/actors/refresh` | Reload the listing from Plex |
-| `GET /api/actors/{key}` | One actor: name, path, tag key, titles, the configuration entry if any, and whether the state's path differs from the live one |
 | `GET /api/images/cdn?path=` | The CDN portrait, downsized |
 | `GET /api/images/poster/{ratingKey}` | A title's poster, downsized |
 | `GET /api/images/portrait?image=` | An image from the portraits directory |
 | `POST /api/uploads` | Raw image body, up to 40 MB. Returns an id and the decoded dimensions |
 | `GET /api/uploads/{id}` | The upload, for the crop canvas |
-| `POST /api/people` | Key, tag key, name, upload id and a crop box in source pixels. Writes the image and the entry, after validation |
-| `DELETE /api/people/{tagKey}` | Removes the entry and its image |
+| `POST /api/changes` | Stage a change: key, kind `set` with an upload id and a crop box in source pixels, or kind `remove` |
+| `GET /api/changes` | The staged changes, oldest first |
+| `GET /api/changes/{key}/image` | A staged portrait |
+| `DELETE /api/changes/{key}` | Discard a staged change |
+| `POST /api/apply` | Write every staged change and forget them |
 
-Saving writes the configuration and the portraits directory and nothing else. There is no endpoint that resolves or clears; the page shows a drift indicator from the state file and says to run the resolving job.
+There is no endpoint that resolves or clears; the page shows a drift indicator from the state file and says to run the resolving job.
 
-The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own components built on a small set of design tokens. It is built to static files and embedded in the binary, so Node exists only at build time. The crop editor is a fixed square canvas with pan and zoom, the crop clamped inside the image, a circle overlay for the round avatar, and live previews at the sizes Plex requests. The crop box goes to the server in source pixels and the server cuts the original.
+The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own ui library on a small set of semantic tokens, in light and dark. It is built to static files and embedded in the binary, so Node exists only at build time. The search page loads every actor once and filters locally. The actor page shows the portrait Plex will serve, Plex's own beside it once overridden, the titles by library, and the ids behind an info button. The crop editor is a fixed square canvas with pan and zoom, the crop clamped inside the image, a circle overlay for the round avatar, and previews drawn at the display's pixel ratio at the sizes Plex requests. The crop box goes to the server in source pixels and the server cuts the original.
 
 ### Certificates
 
