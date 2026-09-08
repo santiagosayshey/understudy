@@ -197,7 +197,7 @@
 							<img
 								src={api.posterImage(t.ratingKey, 400)}
 								alt=""
-								class="bg-surface-raised aspect-[2/3] w-28 rounded-md object-cover"
+								class="bg-surface-raised aspect-2/3 w-28 rounded-md object-cover"
 								loading="lazy"
 							/>
 							<p class="mt-2 truncate text-sm font-medium" title={t.name}>{t.name}</p>
