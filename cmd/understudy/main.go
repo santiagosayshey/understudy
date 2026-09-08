@@ -37,9 +37,11 @@ func main() {
 		os.Exit(runEdit(args))
 	case "validate":
 		os.Exit(runValidate(args))
+	case "sync":
+		os.Exit(runSync(args))
 	case "version":
 		fmt.Println(version)
-	case "proxy", "sync", "cert":
+	case "proxy", "cert":
 		fmt.Fprintf(os.Stderr, "understudy %s: not implemented yet\n", os.Args[1])
 		os.Exit(2)
 	default:
