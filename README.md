@@ -49,8 +49,6 @@ echo 'version: 1' > config/configuration.yml
 echo 'PLEX_TOKEN=your-token' > .env
 ```
 
-The containers run as your user so they can read and write this folder. The `user:` lines below assume that is `1000:1000`; check with `id -u` and `id -g`.
-
 ### Make a certificate Plex will trust
 
 Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it. The authority goes into Plex, the certificate stays with the proxy.
