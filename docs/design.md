@@ -355,6 +355,10 @@ Clients receive a three day `max-age`, so browsers hold a portrait for up to thr
 
 A person's URL is a content hash that changes when their photo changes upstream. The CDN is a plain file server built for caching: a path returns the same bytes forever, so a new photo gets a new path. The person-to-path mapping lives in Plex's metadata service and is copied into the server's database on refresh. Nothing between the server and the CDN can know whose picture a path is without asking Plex.
 
+### A.5 Which clients ask the server
+
+Plex Web, Plex for Windows, Plex HTPC, and the Apple TV and LG TV apps ask the server for cast portraits, so the override reaches them. The iOS app takes the CDN address from the item's metadata and fetches it itself, so nothing on the server can change what it shows. The actor's own page, in every client, uses a second and larger picture of the person from a different URL, which the resolving job does not know.
+
 ## Appendix B: Measurements
 
 Numbers the decisions rest on, taken on 2026-09-07 on a workstation and on a home server running Plex.
