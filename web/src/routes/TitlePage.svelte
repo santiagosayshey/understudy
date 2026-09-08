@@ -14,7 +14,6 @@
 	import { pending } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
-	import Notice from '$lib/ui/notice/Notice.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
 	import { link } from '$lib/router/router.svelte';
 
@@ -56,64 +55,64 @@
 	{/if}
 {/snippet}
 
-{#if error}
-	<Notice tone="danger">{error}</Notice>
-{:else if !page}
-	<div class="flex justify-center py-16">
-		<Spinner />
-	</div>
-{:else}
-	<div class="flex gap-6">
-		<img
-			src={api.posterImage(page.title.ratingKey, 800)}
-			alt=""
-			class="bg-surface-raised aspect-2/3 w-40 shrink-0 rounded-lg object-cover"
-		/>
-		<div class="min-w-0 flex-1">
-			<div class="flex items-start justify-between gap-4">
-				<h1 class="text-2xl font-semibold tracking-tight">{page.title.name}</h1>
-				<a
-					href="/"
-					use:link
-					class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
-				>
-					<ArrowLeft class="size-4" aria-hidden="true" />
-					Search
-				</a>
+<div class="mx-auto w-full max-w-3xl px-4 pt-4 pb-16 sm:px-6">
+	{#if error}
+		<p class="text-danger">{error}</p>
+	{:else if !page}
+		<div class="text-fg-muted flex items-center gap-3"><Spinner /> Loading from Plex…</div>
+	{:else}
+		<div class="flex gap-5">
+			<img
+				src={api.posterImage(page.title.ratingKey, 400)}
+				alt=""
+				class="bg-surface-raised aspect-2/3 w-28 shrink-0 rounded-lg object-cover"
+			/>
+			<div class="min-w-0 flex-1">
+				<div class="flex items-start justify-between gap-4">
+					<h1 class="text-2xl font-semibold tracking-tight">{page.title.name}</h1>
+					<a
+						href="/"
+						use:link
+						class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
+					>
+						<ArrowLeft class="size-4" aria-hidden="true" />
+						Search
+					</a>
+				</div>
+				<p class="text-fg-muted mt-1 text-sm">
+					{#if page.title.year}{page.title.year} ·
+					{/if}{page.title.library}
+				</p>
 			</div>
-			<p class="text-fg-muted mt-1 text-sm">
-				{#if page.title.year}{page.title.year},
-				{/if}{page.title.library}
-			</p>
 		</div>
-	</div>
 
-	<section class="mt-8">
-		<h2 class="text-fg-muted mb-3 text-sm font-medium">Cast</h2>
-		{#if page.cast.length === 0}
-			<p class="text-fg-muted text-sm">Plex lists no cast for this title.</p>
-		{:else}
-			<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-				{#each page.cast as c, i (c.key + i)}
-					<li>
-						{#if c.listed}
-							<a
-								href="/actors/{c.key}"
-								use:link
-								class="hover:bg-surface-hover flex flex-col items-center gap-2 rounded-lg p-3 text-center transition-colors"
-							>
-								{@render member(c)}
-							</a>
-						{:else}
-							<div
-								class="flex flex-col items-center gap-2 p-3 text-center opacity-60"
-							>
-								{@render member(c)}
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-{/if}
+		<section class="mt-8">
+			<h2 class="text-fg-muted mb-3 text-sm font-medium">Cast</h2>
+			{#if page.cast.length === 0}
+				<p class="text-fg-muted text-sm">Plex lists no cast for this title.</p>
+			{:else}
+				<ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+					{#each page.cast as c, i (c.key + i)}
+						<li>
+							{#if c.listed}
+								<a
+									href="/actors/{c.key}"
+									use:link
+									class="hover:bg-surface-hover flex flex-col items-center gap-1.5 rounded-lg p-2 text-center transition-colors"
+								>
+									{@render member(c)}
+								</a>
+							{:else}
+								<div
+									class="flex flex-col items-center gap-1.5 p-2 text-center opacity-60"
+								>
+									{@render member(c)}
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
+</div>
