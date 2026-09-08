@@ -9,7 +9,7 @@ require (
 
 require golang.org/x/text v0.41.0
 
-require github.com/esimov/pigo v1.4.6 // indirect
+require github.com/esimov/pigo v1.4.6
 
 require (
 	golang.org/x/mod v0.39.0 // indirect
