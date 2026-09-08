@@ -67,7 +67,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
 	status: () => request<Status>('/api/status'),
-	search: (q: string) => request<Actor[]>('/api/actors?q=' + encodeURIComponent(q)),
+	search: (q: string) =>
+		request<{ results: Actor[]; total: number }>('/api/actors?q=' + encodeURIComponent(q)),
 	refresh: () => request<void>('/api/actors/refresh', { method: 'POST' }),
 	actor: (key: string) => request<ActorPage>('/api/actors/' + encodeURIComponent(key)),
 	cdnImage: (path: string, w = 96) => `/api/images/cdn?w=${w}&path=${encodeURIComponent(path)}`,

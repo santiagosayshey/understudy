@@ -128,11 +128,12 @@ func (l *Listing) Get(key string) (Actor, bool) {
 }
 
 // Search ranks names that start with the query first, then names with a word
-// that starts with it, then names that contain it.
-func (l *Listing) Search(q string, limit int) []Actor {
+// that starts with it, then names that contain it. It returns the first
+// limit matches and how many there were in all.
+func (l *Listing) Search(q string, limit int) ([]Actor, int) {
 	q = norm(q)
 	if q == "" {
-		return nil
+		return nil, 0
 	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -149,10 +150,11 @@ func (l *Listing) Search(q string, limit int) []Actor {
 		}
 	}
 	out := append(append(starts, words...), inside...)
+	total := len(out)
 	if len(out) > limit {
 		out = out[:limit]
 	}
-	return out
+	return out, total
 }
 
 func wordPrefix(name, q string) bool {

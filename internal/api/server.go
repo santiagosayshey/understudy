@@ -58,8 +58,9 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 		Override bool `json:"override"`
 		Drift    bool `json:"drift"`
 	}
+	matches, total := s.Listing.Search(r.URL.Query().Get("q"), 60)
 	var out []result
-	for _, a := range s.Listing.Search(r.URL.Query().Get("q"), 25) {
+	for _, a := range matches {
 		res := result{Actor: a}
 		if e := entryFor(entries, a.Name); e != nil {
 			res.Override = true
@@ -72,7 +73,7 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 	if out == nil {
 		out = []result{}
 	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, map[string]any{"results": out, "total": total})
 }
 
 // actor is one person with their titles, the configuration entry if any,

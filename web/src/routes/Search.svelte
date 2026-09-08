@@ -11,24 +11,37 @@
 
 	let query = $state('');
 	let results = $state<Actor[]>([]);
+	let total = $state(0);
 	let searched = $state('');
 	let active = $state(-1);
 	let focused = $state(false);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
+	// How many rows fit under the search box: the viewport minus the header,
+	// the box at the top, and room for the "more" line. Recomputed on resize.
+	const rowHeight = 64;
+	let viewport = $state(typeof window === 'undefined' ? 800 : window.innerHeight);
+	const fit = $derived(Math.max(3, Math.floor((viewport - 56 - 140 - 48) / rowHeight)));
+	const shown = $derived(results.slice(0, fit));
+	const more = $derived(total - shown.length);
+
 	async function search() {
 		const q = query.trim();
 		if (!q) {
 			results = [];
+			total = 0;
 			searched = '';
 			return;
 		}
 		try {
-			results = await api.search(q);
+			const r = await api.search(q);
+			results = r.results;
+			total = r.total;
 			searched = q;
 			active = -1;
 		} catch {
 			results = [];
+			total = 0;
 		}
 	}
 
@@ -38,25 +51,38 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
-		if (!results.length) return;
+		if (!shown.length) return;
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
-			active = (active + 1) % results.length;
+			active = (active + 1) % shown.length;
 		} else if (e.key === 'ArrowUp') {
 			e.preventDefault();
-			active = (active - 1 + results.length) % results.length;
+			active = (active - 1 + shown.length) % shown.length;
 		} else if (e.key === 'Enter' && active >= 0) {
-			navigate('/actors/' + results[active].key);
+			navigate('/actors/' + shown[active].key);
 		}
 	}
 
 	const ready = $derived(listing?.loaded ?? false);
+	const lifted = $derived(searched !== '');
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col items-center px-4 pt-[22vh]">
-	<h1 class="text-2xl font-semibold tracking-tight">Find an actor, choose their portrait.</h1>
+<svelte:window onresize={() => (viewport = window.innerHeight)} />
 
-	<div class="mt-6 w-full">
+<div
+	class="mx-auto flex w-full max-w-xl flex-col items-center px-4 transition-[padding-top] duration-300 ease-out {lifted
+		? 'pt-6'
+		: 'pt-[30vh]'}"
+>
+	<h1
+		class="overflow-hidden text-2xl font-semibold tracking-tight transition-[opacity,max-height,margin] duration-300 ease-out {lifted
+			? 'mb-0 max-h-0 opacity-0'
+			: 'mb-6 max-h-10 opacity-100'}"
+	>
+		Find an actor, choose their portrait.
+	</h1>
+
+	<div class="w-full">
 		<Input
 			bind:value={query}
 			size="lg"
@@ -103,11 +129,11 @@
 		{/if}
 	{:else if searched && results.length === 0}
 		<p class="text-fg-muted mt-6 text-sm">No actor named “{searched}” in Plex.</p>
-	{:else if results.length}
+	{:else if shown.length}
 		<ul
 			class="divide-border border-border bg-surface shadow-raised mt-4 w-full divide-y overflow-hidden rounded-lg border"
 		>
-			{#each results as actor, i (actor.key)}
+			{#each shown as actor, i (actor.key)}
 				<li>
 					<a
 						href="/actors/{actor.key}"
@@ -140,5 +166,10 @@
 				</li>
 			{/each}
 		</ul>
+		{#if more > 0}
+			<p class="text-fg-muted mt-3 text-sm">
+				{more}{total > results.length ? '+' : ''} more. Keep typing to narrow it down.
+			</p>
+		{/if}
 	{/if}
 </div>
