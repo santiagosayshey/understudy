@@ -89,7 +89,7 @@ The resolving job turns each configured name into the CDN path Plex currently us
 
 ### How a run works
 
-A run begins by running validation exactly as described under Validating and stops on any error. It then fetches every actor Plex knows across its movie and show libraries. This listing is the only place a current portrait path exists, and it takes several seconds per library. Each configured entry is matched to one actor, by tag key where given, otherwise by name. The resolved path is compared with the previous state. The new state file is written. If any path changed or an entry was added or removed, Plex's photo cache is cleared once. A report is printed.
+A run begins by running validation exactly as described under Validating and stops on any error. It then fetches every actor Plex knows across its movie and show libraries. This listing is the only place a current portrait path exists, and it takes several seconds per library. Each configured entry is matched to one actor, by tag key where given, otherwise by name. The resolved path is compared with the previous state, and each image file's content hash with the one recorded, so a replaced picture under the same name counts as a change. The new state file is written. If any path changed, an image changed, or an entry was added or removed, Plex's photo cache is cleared once. A report is printed.
 
 An entry that cannot be resolved on a run keeps its last known state and is reported as a problem. An entry that has never resolved has no path and is absent from what the overriding job matches. Once a name has resolved, the state keeps the tag key. If Plex later renames the actor, the run reports a problem rather than silently dropping the override.
 
@@ -97,7 +97,7 @@ An entry that cannot be resolved on a run keeps its last known state and is repo
 
 When Plex has changed an actor's portrait URL since the last run, the old path and the time are recorded in that entry's history. The new path becomes current. The overriding job follows the actor to the new URL. The image file is not touched and nothing else needs to happen. Until a run discovers the change, a drifted actor shows Plex's own picture, because the overriding job is still matching the old path.
 
-The cache clear deletes the contents of Plex's photo cache directory. It happens at most once per run and only when the state changed. It is cheap in practice because most of that cache is rebuilt locally from images Plex already has. Only remote images such as portraits are fetched again, and only when next viewed. Clients still hold their own copy for up to three days ([A.3](#a3-client-cache)).
+The cache clear deletes the contents of Plex's photo cache directory, and refuses any directory not named `PhotoTranscoder` so a mistyped setting cannot empty something else. It happens at most once per run and only when something changed. It is cheap in practice because most of that cache is rebuilt locally from images Plex already has. Only remote images such as portraits are fetched again, and only when next viewed. Clients still hold their own copy for up to three days ([A.3](#a3-client-cache)).
 
 ### Scheduling and the report
 
@@ -114,6 +114,7 @@ The report lists every entry with its outcome, each drift as the old and new pat
       "name": "Cailee Spaeny",
       "tagKey": "5d7769e1fb0d55001f533216",
       "image": "cailee-spaeny.jpg",
+      "imageHash": "7a10caf8…",
       "path": "/f/people/fe158d30be9278d335acd7a92037b20b.jpg",
       "resolved": "2026-09-07T12:00:00Z",
       "history": [
@@ -160,7 +161,7 @@ Every setting is a flag with an environment variable of the same name under `UND
 | `--certs DIR` | `/certs` | `proxy`, `cert` |
 | `--plex-url URL` | none | `sync`, `validate`, `edit` |
 | `--plex-token TOKEN` | none | `sync`, `validate`, `edit`. Omitted when the URL is a proxy that injects it |
-| `--plex-cache DIR` | none | `sync`. Plex's `Cache/PhotoTranscoder` directory. Without it no clear happens and the report says so |
+| `--plex-cache DIR` | none | `sync`. Plex's `Cache/PhotoTranscoder` directory. Without it no clear happens and the report says so. Any other directory name is refused |
 | `--cdn URL` | `https://metadata-static.plex.tv` | `proxy`. Changed only in tests |
 | `--listen ADDR` | `:443` for `proxy`, `:8090` for `edit` | `proxy`, `edit` |
 | `--status-listen ADDR` | `:8091` | `proxy`, a plain HTTP port for health and status |
@@ -220,6 +221,7 @@ services:
   proxy:
     image: ghcr.io/santiagosayshey/understudy:latest
     command: proxy
+    user: "1000:1000"   # the owner of certs/, so leaf.key (0600) is readable by the non-root image
     volumes:
       - ./configuration.yml:/config/configuration.yml:ro
       - ./portraits:/portraits:ro

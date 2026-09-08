@@ -23,13 +23,14 @@ func problem(name string, kind resolve.Kind) resolve.Outcome {
 func TestApply(t *testing.T) {
 	t0 := time.Date(2026, 9, 1, 6, 0, 0, 0, time.UTC)
 	t1 := t0.Add(24 * time.Hour)
+	hashes := map[string]string{"cailee-spaeny.jpg": "aaa", "jacob-elordi.jpg": "bbb", "x.jpg": "ccc"}
 
 	// first run: two people resolve, one is unknown
 	s1, ch := Apply(&File{Version: 1}, []resolve.Outcome{
 		person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/old.jpg"),
 		person("Jacob Elordi", "6755", "5d7769e1fb0d55001f533217", "/d/people/df24.jpg"),
 		problem("Cailey Spaeny", resolve.Unknown),
-	}, t0)
+	}, hashes, t0)
 	if len(ch.Added) != 2 || ch.Any() != true || len(ch.Drifted) != 0 {
 		t.Fatalf("first run changes: %+v", ch)
 	}
@@ -45,7 +46,7 @@ func TestApply(t *testing.T) {
 	s2, ch := Apply(s1, []resolve.Outcome{
 		person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/new.jpg"),
 		{Entry: config.Entry{Name: "Jacob Elordi", Image: "jacob-elordi.jpg"}, Problem: &resolve.Problem{Kind: resolve.Unknown, Detail: "no actor with that name"}},
-	}, t1)
+	}, hashes, t1)
 	if len(ch.Drifted) != 1 || ch.Drifted[0].From != "/f/people/old.jpg" || ch.Drifted[0].To != "/f/people/new.jpg" {
 		t.Fatalf("drift: %+v", ch)
 	}
@@ -67,15 +68,21 @@ func TestApply(t *testing.T) {
 	// third run: Jacob removed from the configuration, nothing else changed
 	s3, ch := Apply(s2, []resolve.Outcome{
 		person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/new.jpg"),
-	}, t1.Add(time.Hour))
+	}, hashes, t1.Add(time.Hour))
 	if len(ch.Removed) != 1 || ch.Removed[0] != "Jacob Elordi" || len(ch.Drifted) != 0 || len(ch.Added) != 0 {
 		t.Fatalf("removal: %+v", ch)
 	}
 	if len(s3.Entries) != 1 || s3.Entries[0].Resolved != "2026-09-02T06:00:00Z" {
 		t.Fatalf("unchanged entry should keep its resolved time: %+v", s3.Entries)
 	}
-	if _, ch := Apply(s3, []resolve.Outcome{person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/new.jpg")}, t1.Add(2*time.Hour)); ch.Any() {
+	if _, ch := Apply(s3, []resolve.Outcome{person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/new.jpg")}, hashes, t1.Add(2*time.Hour)); ch.Any() {
 		t.Fatalf("a run with nothing changed must report no changes: %+v", ch)
+	}
+
+	// a replaced image file under the same name is a change too
+	s4, ch := Apply(s3, []resolve.Outcome{person("Cailee Spaeny", "27126", "5d7769e1fb0d55001f533216", "/f/people/new.jpg")}, map[string]string{"cailee-spaeny.jpg": "different"}, t1.Add(3*time.Hour))
+	if len(ch.Updated) != 1 || ch.Updated[0] != "Cailee Spaeny" || !ch.Any() || s4.Entries[0].ImageHash != "different" {
+		t.Fatalf("replaced image: %+v %+v", ch, s4.Entries[0])
 	}
 }
 

@@ -1,0 +1,75 @@
+# Understudy beside Plex, all on one host. Two long-lived services from the one
+# image, the resolving job as a profile that cron runs, and the two additions
+# to the Plex container. Adjust the paths, the user, and the Plex token.
+#
+#   docker compose run --rm understudy cert          # once, before the first start
+#   docker compose up -d                              # proxy and editor
+#   docker compose run --rm sync                      # after a change, and on a schedule
+services:
+  proxy:
+    image: ghcr.io/santiagosayshey/understudy:latest
+    command: proxy
+    # The image runs as a non-root user; run as the owner of certs/ so leaf.key
+    # (mode 0600) is readable.
+    user: "1000:1000"
+    volumes:
+      - ./portraits:/portraits:ro
+      - ./certs:/certs:ro
+      - ./state:/state:ro
+    networks:
+      understudy:
+        ipv4_address: 172.31.250.10
+    restart: unless-stopped
+
+  edit:
+    image: ghcr.io/santiagosayshey/understudy:latest
+    command: edit
+    user: "1000:1000"
+    environment:
+      UNDERSTUDY_PLEX_URL: http://172.17.0.1:32400
+      UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
+    volumes:
+      - ./configuration.yml:/config/configuration.yml
+      - ./portraits:/portraits
+      - ./state:/state:ro
+    ports:
+      - "127.0.0.1:8090:8090"
+    restart: unless-stopped
+
+  sync:
+    image: ghcr.io/santiagosayshey/understudy:latest
+    command: sync
+    user: "1000:1000"
+    profiles: [tools] # never started by `up`; run by cron
+    environment:
+      UNDERSTUDY_PLEX_URL: http://172.17.0.1:32400
+      UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
+      UNDERSTUDY_PLEX_CACHE: /plex-cache
+    volumes:
+      - ./configuration.yml:/config/configuration.yml:ro
+      - ./portraits:/portraits:ro
+      - ./state:/state
+      - /path/to/plex/appdata/Library/Application Support/Plex Media Server/Cache/PhotoTranscoder:/plex-cache
+
+  understudy: # for one-off commands such as cert
+    image: ghcr.io/santiagosayshey/understudy:latest
+    user: "1000:1000"
+    profiles: [tools]
+    volumes:
+      - ./certs:/certs
+
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    network_mode: host
+    extra_hosts:
+      - "metadata-static.plex.tv:172.31.250.10"
+    volumes:
+      - /path/to/plex/appdata:/config
+      - ./certs/ca.crt:/understudy/ca.crt:ro
+      - ./contrib/plex:/custom-cont-init.d:ro
+
+networks:
+  understudy:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24

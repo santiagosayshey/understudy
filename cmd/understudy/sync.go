@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -22,6 +25,7 @@ func runSync(args []string) int {
 	var c common
 	c.bind(fs)
 	stateDir := fs.String("state", envOr("UNDERSTUDY_STATE", "/state"), "directory the state file is written to")
+	cacheDir := fs.String("plex-cache", envOr("UNDERSTUDY_PLEX_CACHE", ""), "Plex's Cache/PhotoTranscoder directory, cleared when something changed; nothing is cleared without it")
 	if err := fs.Parse(args); err != nil {
 		return exitFailed
 	}
@@ -53,7 +57,21 @@ func runSync(args []string) int {
 		fmt.Fprintln(os.Stderr, "sync:", err)
 		return exitFailed
 	}
-	next, changes := state.Apply(prev, outcomes, time.Now())
+	hashes, err := imageHashes(cfg, c.portraits)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sync:", err)
+		return exitFailed
+	}
+	next, changes := state.Apply(prev, outcomes, hashes, time.Now())
+	var cleared int
+	if changes.Any() && *cacheDir != "" {
+		n, err := plex.ClearCache(*cacheDir)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "sync:", err)
+			return exitFailed
+		}
+		cleared, next.CacheCleared = n, true
+	}
 	if err := next.Save(*stateDir); err != nil {
 		fmt.Fprintln(os.Stderr, "sync:", err)
 		return exitFailed
@@ -62,9 +80,44 @@ func runSync(args []string) int {
 	for _, d := range changes.Drifted {
 		fmt.Printf("drift    %s  %s -> %s\n", d.Name, d.From, d.To)
 	}
-	fmt.Printf("state: %d added, %d removed, %d drifted; written to %s\n",
-		len(changes.Added), len(changes.Removed), len(changes.Drifted), filepath.Join(*stateDir, state.FileName))
+	for _, n := range changes.Updated {
+		fmt.Printf("updated  %s  image changed\n", n)
+	}
+	fmt.Printf("state: %d added, %d removed, %d updated, %d drifted; written to %s\n",
+		len(changes.Added), len(changes.Removed), len(changes.Updated), len(changes.Drifted), filepath.Join(*stateDir, state.FileName))
+	switch {
+	case next.CacheCleared:
+		fmt.Printf("cache: cleared %d entries from %s; clients pick up the change on their next fetch\n", cleared, *cacheDir)
+	case changes.Any():
+		fmt.Println("cache: not configured, nothing cleared; Plex keeps showing its cached portraits until its photo cache is cleared")
+	default:
+		fmt.Println("cache: nothing changed, nothing cleared")
+	}
 	return status
+}
+
+// imageHashes fingerprints every configured image so a replaced file under
+// the same name counts as a change.
+func imageHashes(cfg *config.Config, portraits string) (map[string]string, error) {
+	hashes := map[string]string{}
+	for _, e := range cfg.People {
+		file, ok := config.ImagePath(portraits, e.Image)
+		if !ok {
+			continue
+		}
+		f, err := os.Open(file)
+		if err != nil {
+			return nil, err
+		}
+		h := sha256.New()
+		_, err = io.Copy(h, f)
+		f.Close()
+		if err != nil {
+			return nil, err
+		}
+		hashes[e.Image] = hex.EncodeToString(h.Sum(nil))
+	}
+	return hashes, nil
 }
 
 func errorsIn(problems []config.Problem) []config.Problem {
