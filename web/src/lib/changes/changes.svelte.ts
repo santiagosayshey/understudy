@@ -2,8 +2,9 @@
 // actor page agree. Refreshed after every stage, discard and apply.
 import { api, forgetActors, type Change } from '$lib/api/client';
 
-// applied counts applies, so open pages know to reload after one.
-export const pending = $state({ list: [] as Change[], loaded: false, applied: 0 });
+// revision goes up on every stage, discard and apply, so an open page
+// knows to reload whatever it is showing.
+export const pending = $state({ list: [] as Change[], loaded: false, revision: 0 });
 
 export async function refreshChanges() {
 	try {
@@ -16,21 +17,23 @@ export async function refreshChanges() {
 
 export async function stage(body: Parameters<typeof api.stage>[0]) {
 	const c = await api.stage(body);
-	forgetActors();
-	await refreshChanges();
+	await changed();
 	return c;
 }
 
 export async function discard(key: string) {
 	await api.discard(key);
-	forgetActors();
-	await refreshChanges();
+	await changed();
 }
 
 export async function apply() {
 	const done = await api.apply();
+	await changed();
+	return done;
+}
+
+async function changed() {
 	forgetActors();
 	await refreshChanges();
-	pending.applied++;
-	return done;
+	pending.revision++;
 }

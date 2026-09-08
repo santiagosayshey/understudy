@@ -41,9 +41,10 @@
 		error = null;
 		load();
 	});
-	// after an apply, reload in place so the page shows the written state
+	// after any stage, discard or apply, reload in place so the page shows
+	// the current state, including changes made from the drawer
 	$effect(() => {
-		if (pending.applied > 0) load();
+		if (pending.revision > 0) load();
 	});
 
 	const actor = $derived(page?.actor);
@@ -87,12 +88,10 @@
 	async function remove() {
 		if (!actor) return;
 		await stage({ key: actor.key, kind: 'remove' });
-		load();
 	}
 	async function undo() {
 		if (!actor) return;
 		await discard(actor.key);
-		load();
 	}
 </script>
 
