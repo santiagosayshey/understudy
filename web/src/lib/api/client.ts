@@ -65,12 +65,46 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	return body as T;
 }
 
+// Actor pages fetched ahead of a click, kept for a minute. The search page
+// warms this for the rows on screen once typing pauses.
+const warmed = new Map<string, { at: number; page: Promise<ActorPage> }>();
+const warmFor = 60_000;
+
+function actorPage(key: string): Promise<ActorPage> {
+	const hit = warmed.get(key);
+	if (hit && Date.now() - hit.at < warmFor) return hit.page;
+	const page = request<ActorPage>('/api/actors/' + encodeURIComponent(key));
+	warmed.set(key, { at: Date.now(), page });
+	page.catch(() => warmed.delete(key));
+	return page;
+}
+
+/** Fetches the given actors' pages in the background, a few at a time. */
+export function prefetchActors(keys: string[], concurrency = 4) {
+	const queue = keys.filter((k) => {
+		const hit = warmed.get(k);
+		return !hit || Date.now() - hit.at >= warmFor;
+	});
+	const worker = async () => {
+		while (queue.length) {
+			const key = queue.shift()!;
+			await actorPage(key).catch(() => {});
+		}
+	};
+	for (let i = 0; i < Math.min(concurrency, queue.length); i++) worker();
+}
+
+/** Drops the cached pages, for after the configuration changed. */
+export function forgetActors() {
+	warmed.clear();
+}
+
 export const api = {
 	status: () => request<Status>('/api/status'),
 	search: (q: string) =>
 		request<{ results: Actor[]; total: number }>('/api/actors?q=' + encodeURIComponent(q)),
 	refresh: () => request<void>('/api/actors/refresh', { method: 'POST' }),
-	actor: (key: string) => request<ActorPage>('/api/actors/' + encodeURIComponent(key)),
+	actor: actorPage,
 	cdnImage: (path: string, w = 96) => `/api/images/cdn?w=${w}&path=${encodeURIComponent(path)}`,
 	posterImage: (ratingKey: string, w = 200) =>
 		`/api/images/poster/${encodeURIComponent(ratingKey)}?w=${w}`,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { api, type Actor, type ListingStatus } from '$lib/api/client';
+	import { api, prefetchActors, type Actor, type ListingStatus } from '$lib/api/client';
 	import Input from '$lib/ui/input/Input.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
@@ -59,7 +59,11 @@
 		timer = setTimeout(search, 120);
 		clearTimeout(liftTimer);
 		if (!query.trim()) lifted = false;
-		else liftTimer = setTimeout(() => (lifted = query.trim() !== ''), 400);
+		else
+			liftTimer = setTimeout(() => {
+				lifted = query.trim() !== '';
+				prefetchActors(shown.map((a) => a.key));
+			}, 400);
 	}
 
 	function onkeydown(e: KeyboardEvent) {
