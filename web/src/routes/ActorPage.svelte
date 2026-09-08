@@ -187,7 +187,7 @@
 		{#each libraries as [library, titles] (library)}
 			<section class="mt-8">
 				<h2 class="text-fg-muted mb-3 text-sm font-medium">{library}</h2>
-				<ul class="flex gap-4 overflow-x-auto pb-2">
+				<ul class="flex gap-4 overflow-x-auto pb-4">
 					{#each titles as t (t.ratingKey)}
 						<li class="w-28 shrink-0">
 							<img
