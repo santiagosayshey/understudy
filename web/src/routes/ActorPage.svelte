@@ -110,18 +110,16 @@
 				ondragleave={() => (over = false)}
 				{ondrop}
 			>
-				<div class="relative">
+				<div class="flex items-end gap-3">
 					<Avatar src={effective} alt="" size="xl" />
 					{#if showsPlex}
-						<div class="bg-bg absolute -right-1 -bottom-1 rounded-full p-1">
-							<Tooltip text="Plex's portrait">
-								<Avatar
-									src={api.cdnImage(actor.path!, 96)}
-									alt="Plex's portrait"
-									size="md"
-								/>
-							</Tooltip>
-						</div>
+						<Tooltip text="Plex's portrait">
+							<Avatar
+								src={api.cdnImage(actor.path!, 96)}
+								alt="Plex's portrait"
+								size="md"
+							/>
+						</Tooltip>
 					{/if}
 				</div>
 			</div>
