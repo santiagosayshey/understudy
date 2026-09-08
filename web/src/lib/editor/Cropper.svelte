@@ -4,7 +4,8 @@
 	// and the smallest zoom fills the square, so the result is always a full
 	// square. A circle shows what Plex's round avatar reveals; the previews
 	// render the crop at the sizes Plex uses. The crop box goes back to the
-	// server in source pixels.
+	// server in source pixels. When the server found a face, the crop opens
+	// on it, and a button brings it back after adjusting.
 	import Slider from '$lib/ui/slider/Slider.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
 
@@ -12,11 +13,13 @@
 		src,
 		width: W,
 		height: H,
+		face = null,
 		crop = $bindable({ x: 0, y: 0, size: 0 }),
 	}: {
 		src: string;
 		width: number;
 		height: number;
+		face?: { x: number; y: number; size: number } | null;
 		crop?: { x: number; y: number; size: number };
 	} = $props();
 
@@ -34,7 +37,7 @@
 
 	$effect(() => {
 		img = new Image();
-		img.onload = () => fill();
+		img.onload = () => (face ? goTo(face) : fill());
 		img.src = src;
 	});
 
@@ -54,6 +57,15 @@
 	}
 	function box() {
 		return { x: -ox / s, y: -oy / s, size: V / s };
+	}
+	function goTo(b: { x: number; y: number; size: number }) {
+		sMin = V / Math.min(W, H);
+		s = Math.min(4 * sMin, Math.max(sMin, V / b.size));
+		ox = V / 2 - (b.x + b.size / 2) * s;
+		oy = V / 2 - (b.y + b.size / 2) * s;
+		zoom = s / sMin;
+		clamp();
+		draw();
 	}
 	function draw() {
 		if (!canvas || !img) return;
@@ -154,6 +166,9 @@
 				oninput={() => zoomTo(zoom)}
 			/>
 			<Button variant="secondary" size="sm" onclick={fill}>Fill</Button>
+			{#if face}
+				<Button variant="secondary" size="sm" onclick={() => goTo(face)}>Face</Button>
+			{/if}
 		</div>
 	</div>
 	<div class="flex flex-col gap-3 text-sm sm:w-48">

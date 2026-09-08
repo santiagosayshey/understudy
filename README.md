@@ -225,4 +225,5 @@ make build && ./bin/understudy edit --plex-url http://your-plex:32400 --plex-tok
 - The masks are Google's [Noto Color Emoji](https://github.com/googlefonts/noto-emoji), Apache 2.0.
 - The typeface is Vercel's [Geist](https://vercel.com/font), SIL Open Font License.
 - Icons are [Lucide](https://lucide.dev), ISC.
+- Face detection is [pigo](https://github.com/esimov/pigo), MIT.
 - Understudy itself is [MIT](LICENSE).

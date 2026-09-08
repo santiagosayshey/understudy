@@ -61,6 +61,7 @@
 			src={api.uploadImage(upload.id)}
 			width={upload.width}
 			height={upload.height}
+			face={upload.face ?? null}
 			bind:crop
 		/>
 	{:else if !error}

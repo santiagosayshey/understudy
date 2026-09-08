@@ -26,6 +26,9 @@ var rules = map[string][]forbidden{
 		{"internal/plex", "state is derived from resolve outcomes, never from Plex directly"},
 		{"internal/api", "state does not know about the editor"},
 	},
+	"internal/face": {
+		{"internal/", "the face detector depends on nothing of ours"},
+	},
 	"internal/plex": {
 		{"internal/", "the Plex client depends on nothing of ours"},
 	},

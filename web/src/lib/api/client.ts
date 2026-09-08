@@ -61,7 +61,15 @@ export type Change = {
 
 export type ActorPage = { actor: Detail; override?: Override; staged?: Change };
 
-export type UploadInfo = { id: string; width: number; height: number; format: string };
+export type Box = { x: number; y: number; size: number };
+
+export type UploadInfo = {
+	id: string;
+	width: number;
+	height: number;
+	format: string;
+	face?: Box;
+};
 
 export type Applied = { written: string[]; removed: string[] };
 
