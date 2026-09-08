@@ -5,18 +5,37 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Settings come from the environment or from .env at the root, which git
+# ignores: UNDERSTUDY_PLEX_URL, UNDERSTUDY_LISTEN when 8090 is taken by a
+# real editor, and UNDERSTUDY_TMDB_KEY for portraits from TMDb.
+if [ -f .env ]; then
+	set -a
+	. ./.env
+	set +a
+fi
+
 WGO=${WGO:-github.com/bokwoon95/wgo@v0.7.1}
 API=${UNDERSTUDY_LISTEN:-127.0.0.1:8090}
+case $API in :*) API=127.0.0.1$API ;; esac
+export UNDERSTUDY_LISTEN=$API # Vite proxies /api to it
 WEB=5173
 # The editor works on a throwaway configuration under dev/ (ignored by git),
 # and reads Plex through whatever UNDERSTUDY_PLEX_URL points at.
 PLEX=${UNDERSTUDY_PLEX_URL:-http://localhost:8080/plex}
 mkdir -p dev/portraits dev/state
+
+# A taken port would leave Vite proxying to whatever holds it, most likely a
+# released editor, and the page would quietly show the wrong build.
+if ss -ltn 2>/dev/null | grep -q ":${API##*:} "; then
+	printf 'port %s is in use; set UNDERSTUDY_LISTEN=127.0.0.1:<port> in .env\n' "${API##*:}" >&2
+	exit 1
+fi
 [ -f dev/configuration.yml ] || printf 'version: 1\npeople: []\n' > dev/configuration.yml
 
 bold=$'\e[1m' dim=$'\e[2m' reset=$'\e[0m' green=$'\e[32m' blue=$'\e[34m'
 printf '%sunderstudy dev%s\n' "$bold" "$reset"
 printf '  %sapi%s  http://%s        rebuilds on Go changes, Plex via %s\n' "$green" "$reset" "$API" "$PLEX"
+[ -n "${UNDERSTUDY_TMDB_KEY:-}" ] && printf '  %stmdb%s key set, portraits from TMDb\n' "$green" "$reset"
 printf '  %sweb%s  http://localhost:%s        hot reload, proxies /api to the binary\n' "$blue" "$reset" "$WEB"
 printf '  %sctrl-c stops both%s\n\n' "$dim" "$reset"
 

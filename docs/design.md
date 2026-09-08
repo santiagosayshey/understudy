@@ -166,6 +166,7 @@ Every setting is a flag with an environment variable of the same name under `UND
 | `--cdn URL` | `https://metadata-static.plex.tv` | `proxy`. Changed only in tests |
 | `--listen ADDR` | `:443` for `proxy`, `:8090` for `edit` | `proxy`, `edit` |
 | `--status-listen ADDR` | `:8091` | `proxy`, a plain HTTP port for health and status |
+| `--tmdb-key KEY` | none | `edit`. A TMDb API key or read access token; the actor page then offers TMDb's portraits |
 
 ### The proxy process
 
@@ -184,14 +185,18 @@ Edits are staged, not written. Choosing a portrait uploads the file, the crop ha
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /api/status` | Version, listing state, override count, pending change count |
+| `GET /api/status` | Version, listing state, override count, pending change count, whether there is a TMDb key |
 | `GET /api/actors?q=` | Search the listing: the first 60 matches with key, name, path, libraries, override, staged and drift flags, and the total |
 | `GET /api/actors/{key}` | One actor: name, path, person id, titles by library, the configuration entry with its state, and any staged change |
+| `GET /api/actors/{key}/tmdb` | The actor on TMDb: the likeliest person of that name with their IMDb id and profile images, and the other people of that name |
+| `GET /api/tmdb/people/{id}` | One TMDb person the same way, for switching to another of them |
 | `POST /api/actors/refresh` | Reload the listing from Plex |
 | `GET /api/images/cdn?path=` | The CDN portrait, downsized |
 | `GET /api/images/poster/{ratingKey}` | A title's poster, downsized |
 | `GET /api/images/portrait?image=` | An image from the portraits directory |
+| `GET /api/images/tmdb?path=` | A TMDb profile image, downsized |
 | `POST /api/uploads` | Raw image body, up to 40 MB. Returns an id and the decoded dimensions |
+| `POST /api/uploads/tmdb` | A TMDb file path. Fetches the original and holds it as an upload, with the same response |
 | `GET /api/uploads/{id}` | The upload, for the crop canvas |
 | `POST /api/changes` | Stage a change: key, kind `set` with an upload id and a crop box in source pixels, or kind `remove` |
 | `GET /api/changes` | The staged changes, oldest first |
@@ -202,6 +207,8 @@ Edits are staged, not written. Choosing a portrait uploads the file, the crop ha
 There is no endpoint that resolves or clears; the page shows a drift indicator from the state file and says to run the resolving job.
 
 The page is a Svelte app: Vite, TypeScript, Tailwind, and the project's own ui library on a small set of semantic tokens, in light and dark. It is built to static files and embedded in the binary, so Node exists only at build time. The search page loads every actor once and filters locally. The actor page shows the portrait Plex will serve, Plex's own beside it once overridden, the titles by library, and the ids behind an info button. The crop editor is a fixed square canvas with pan and zoom, the crop clamped inside the image, a circle overlay for the round avatar, and previews drawn at the display's pixel ratio at the sizes Plex requests. The crop box goes to the server in source pixels and the server cuts the original. The editor opens on the face when the server finds one: pigo, a pure Go port of the pico detector with its cascade embedded in the binary, runs on the upload and the response carries a square centred on the largest face, 1.6 faces wide, which is how a set of hand-made crops framed people. A button returns to it after adjusting. No face found leaves the editor's usual guess. A title page shows a movie or show's poster and its whole cast as a grid of portraits that open each actor's page, reached from the posters on the actor page, so several people from one title are fixed from one place.
+
+Most portraits come from TMDb, so the actor page links to the person there and on IMDb, and with a TMDb key the portrait dialog opens on the pictures TMDb holds of them, beside a drop zone for a file of your own. The lookup happens quietly when the page opens. Plex carries no TMDb id for a person, so the server searches TMDb by name and ranks the results by how many of the titles TMDb knows them for are in the actor's Plex libraries, then by TMDb's popularity; the dialog shows the first and offers the rest under "Not them?". TMDb's person record carries the IMDb id, which is where the IMDb link comes from; without a key both links are searches for the name. Choosing a picture has the server fetch the original from TMDb and hold it as an upload, so the crop and the stage that follow are the ones a file goes through. IMDb has no image API and forbids scraping, so pictures come from TMDb only.
 
 ### Certificates
 
@@ -303,6 +310,7 @@ The editor on a workstation, the proxy and the resolving job on the server, the 
 ```
 cmd/understudy/      main, subcommand dispatch, flags
 internal/plex/       API client: sections, actor listings, item metadata; a fake server for tests
+internal/tmdb/       TMDb client: people by name, a person with their images, an image
 internal/config/     configuration file and portraits directory: parse, validate
 internal/resolve/    names and tag keys to current paths; drift diff; the report
 internal/state/      state file: read, write atomically, watch

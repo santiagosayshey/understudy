@@ -16,9 +16,10 @@ export default defineConfig({
 		},
 	},
 	server: {
-		// The Go binary serves the API in production; in development it runs beside Vite.
+		// The Go binary serves the API in production; in development it runs
+		// beside Vite, on the address scripts/dev exports.
 		proxy: {
-			'/api': 'http://127.0.0.1:8090',
+			'/api': 'http://' + (process.env.UNDERSTUDY_LISTEN ?? '127.0.0.1:8090'),
 		},
 	},
 });

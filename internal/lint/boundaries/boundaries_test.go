@@ -28,6 +28,9 @@ func TestBoundaries(t *testing.T) {
 		{"internal/state", []string{"github.com/santiagosayshey/understudy/internal/resolve"}, 0},
 		{"internal/state", []string{"github.com/santiagosayshey/understudy/internal/plex"}, 1},
 		{"internal/api", []string{"github.com/santiagosayshey/understudy/internal/plex"}, 0},
+		{"internal/api", []string{"github.com/santiagosayshey/understudy/internal/tmdb"}, 0},
+		{"internal/proxy", []string{"github.com/santiagosayshey/understudy/internal/tmdb"}, 1},
+		{"internal/tmdb", []string{"github.com/santiagosayshey/understudy/internal/crop"}, 1},
 		{"cmd/understudy", []string{"github.com/santiagosayshey/understudy/internal/plex"}, 0},
 	}
 	for _, c := range cases {

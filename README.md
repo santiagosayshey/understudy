@@ -151,7 +151,7 @@ people:
 - Images are JPEG or PNG. Square is what Plex's round avatars expect; anything else is centre-cropped.
 - `understudy validate` checks the file against Plex without changing anything.
 
-The file is plain YAML, so it can be version controlled and edited by hand. The editor makes that easier. It searches Plex for people, so names and ids come out right. It crops each picture to the square Plex expects, then writes the file and the portraits directory for you. To use it, add it to the compose file:
+The file is plain YAML, so it can be version controlled and edited by hand. The editor makes that easier. It searches Plex for people, so names and ids come out right. It crops each picture to the square Plex expects, then writes the file and the portraits directory for you. Given a TMDb API key it also shows the portraits TMDb has of the person, so one can be picked and cropped without leaving the page. To use it, add it to the compose file:
 
 ```yaml
   # The editor, at http://localhost:8090. It writes configuration.yml and
@@ -163,6 +163,7 @@ The file is plain YAML, so it can be version controlled and edited by hand. The 
     environment:
       UNDERSTUDY_PLEX_URL: http://plex:32400   # Plex, as a container sees it
       UNDERSTUDY_PLEX_TOKEN: ${PLEX_TOKEN}
+      UNDERSTUDY_TMDB_KEY: ${TMDB_KEY}         # optional, for portraits from TMDb
     volumes:
       - ./config:/config
       - ./portraits:/portraits
@@ -176,7 +177,7 @@ The file is plain YAML, so it can be version controlled and edited by hand. The 
 docker compose up -d edit
 ```
 
-Open http://localhost:8090. Search a name, open the person, drop in a photo, crop it, and apply from the review drawer.
+Open http://localhost:8090. Search a name, open the person, drop in a photo or pick one of TMDb's, crop it, and apply from the review drawer.
 
 ### Environment
 
@@ -191,6 +192,7 @@ Everything is set with environment variables, or the flag of the same name.
 | `UNDERSTUDY_CONFIG` | `/config/configuration.yml` | The configuration file. |
 | `UNDERSTUDY_PORTRAITS` | `/portraits` | The pictures the configuration refers to. |
 | `UNDERSTUDY_STATE` | `/state` | Where `sync` writes what `proxy` serves. |
+| `UNDERSTUDY_TMDB_KEY` | | A TMDb [API key](https://www.themoviedb.org/settings/api) or read access token. `edit` then offers TMDb's portraits on the actor page. Optional. |
 | `UNDERSTUDY_CERTS` | `/certs` | Where `cert` writes the certificates and `proxy` reads them. |
 | `UNDERSTUDY_LISTEN` | `:443` | The address `proxy` listens on. |
 | `UNDERSTUDY_LISTEN` | `:8090` | The address `edit` listens on. |

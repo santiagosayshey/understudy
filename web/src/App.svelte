@@ -55,7 +55,7 @@
 <main>
 	{#if actor}
 		{#key actor.key}
-			<ActorPage key={actor.key} />
+			<ActorPage key={actor.key} tmdb={status?.tmdb ?? false} />
 		{/key}
 	{:else if title}
 		{#key title.ratingKey}

@@ -13,6 +13,8 @@ export type Status = {
 	listing: ListingStatus;
 	overrides: number;
 	pending: number;
+	/** whether the server has a TMDb key, so the actor page can offer its portraits */
+	tmdb: boolean;
 };
 
 export type Actor = {
@@ -77,6 +79,18 @@ export type UploadInfo = {
 	format: string;
 	face?: Box;
 };
+
+/** Where the portrait comes from: the browser, or one of TMDb's files. */
+export type UploadSource = { file: File } | { tmdb: string };
+
+export type TmdbProfile = { path: string; width: number; height: number };
+
+export type TmdbPerson = { id: number; name: string; imdbId?: string; profiles: TmdbProfile[] };
+
+export type TmdbCandidate = { id: number; name: string; profile?: string; knownFor: string[] };
+
+/** The likeliest person of that name with their images, and the others. */
+export type TmdbMatch = { person: TmdbPerson | null; candidates: TmdbCandidate[] };
 
 export type Applied = { written: string[]; removed: string[] };
 
@@ -160,6 +174,16 @@ export const api = {
 			headers: { 'Content-Type': 'application/octet-stream' },
 		}),
 	uploadImage: (id: string) => `/api/uploads/${id}`,
+	tmdb: (key: string) => request<TmdbMatch>(`/api/actors/${encodeURIComponent(key)}/tmdb`),
+	tmdbPerson: (id: number) => request<TmdbPerson>(`/api/tmdb/people/${id}`),
+	tmdbImage: (path: string, w = 200) =>
+		`/api/images/tmdb?w=${w}&path=${encodeURIComponent(path)}`,
+	tmdbUpload: (path: string) =>
+		request<UploadInfo>('/api/uploads/tmdb', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ path }),
+		}),
 	title: (ratingKey: string) =>
 		request<TitlePage>(`/api/titles/${encodeURIComponent(ratingKey)}`),
 	changes: () => request<Change[]>('/api/changes'),
