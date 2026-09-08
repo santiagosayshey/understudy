@@ -82,9 +82,6 @@
 				{#if page.title.year}
 					<p class="text-fg-muted mt-1 text-sm">{page.title.year}</p>
 				{/if}
-				<div class="mt-3 flex flex-wrap gap-2">
-					<Badge>{page.title.library}</Badge>
-				</div>
 			</div>
 		</div>
 
