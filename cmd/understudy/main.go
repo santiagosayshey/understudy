@@ -35,9 +35,11 @@ func main() {
 	switch os.Args[1] {
 	case "edit":
 		os.Exit(runEdit(args))
+	case "validate":
+		os.Exit(runValidate(args))
 	case "version":
 		fmt.Println(version)
-	case "proxy", "sync", "validate", "cert":
+	case "proxy", "sync", "cert":
 		fmt.Fprintf(os.Stderr, "understudy %s: not implemented yet\n", os.Args[1])
 		os.Exit(2)
 	default:
@@ -65,11 +67,4 @@ func runEdit(args []string) int {
 		return 1
 	}
 	return 0
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }
