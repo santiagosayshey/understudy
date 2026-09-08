@@ -20,7 +20,7 @@
   </picture>
 </p>
 
-## How it works
+## Overview
 
 Understudy lets you replace Plex's actor portraits with pictures of your own by pretending to be Plex's metadata CDN. It is one small binary with three jobs:
 
@@ -30,13 +30,17 @@ Understudy lets you replace Plex's actor portraits with pictures of your own by 
 
 ## Getting started
 
+Plex fetches actor portraits itself, over HTTPS, from one hostname. Understudy answers at that hostname, so most of the setup is convincing Plex: a certificate it will trust, and a hosts entry that sends the hostname to the proxy. Nothing in Plex itself changes. With that in place you choose portraits in the editor, and sync tells the proxy which URLs to answer with them.
+
 ### Requirements
 
 - Docker with Compose
 - Plex in Docker, on the linuxserver image. Another image needs its own way of trusting a certificate.
 - Your Plex [token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
-### Make a folder
+### A folder for everything
+
+Everything Understudy owns lives in one folder: the certificates, the configuration and portraits, and the state the proxy reads. Plex gets nothing from it but a certificate and a startup script.
 
 ```bash
 mkdir understudy && cd understudy
@@ -45,17 +49,21 @@ echo 'version: 1' > config/configuration.yml
 echo 'PLEX_TOKEN=your-token' > .env
 ```
 
-Everything below goes in here. The containers run as you so they can write to these folders: put your `id -u` and `id -g` in the `user:` lines.
+The containers run as you so they can write here: put your `id -u` and `id -g` in the `user:` lines below.
 
-### Make the certificates
+### Make a certificate Plex will trust
+
+Plex checks the CDN's certificate, so the proxy needs one for the CDN's hostname that Plex accepts. No public authority will sign that, so you make your own: a private authority, and a certificate signed by it. The authority goes into Plex, the certificate stays with the proxy.
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/certs:/certs" ghcr.io/santiagosayshey/understudy:latest cert
 ```
 
-That writes a private certificate authority and a certificate for the CDN's hostname into `certs/`. Keep `ca.key` with your other secrets: Plex will trust anything signed with it.
+Keep `ca.key` with your other secrets: Plex will trust anything signed with it.
 
 ### Run the proxy
+
+The proxy is what answers as the CDN. It serves your portraits and passes everything else through to the real one, so Plex sees no difference. Plex will find it by IP, so it gets a fixed address on a network of its own. Nothing else talks to it: no ports, no token.
 
 `compose.yml`:
 
@@ -85,11 +93,9 @@ networks:
 docker compose up -d proxy
 ```
 
-The proxy has a fixed address because Plex is pointed at it by IP. Nothing else talks to it, so it publishes no ports and needs no token.
-
 ### Point Plex at it
 
-Two additions to the Plex container. One resolves the CDN's hostname to the proxy, the other lets it trust the proxy's certificate:
+Plex needs two things: to resolve the CDN's hostname to the proxy, and to trust the authority that signed the proxy's certificate. The first is a hosts entry. The second is a script that installs the authority every time the container starts, because the trust store is inside the container and would not survive an upgrade.
 
 ```yaml
     extra_hosts:
@@ -99,7 +105,7 @@ Two additions to the Plex container. One resolves the CDN's hostname to the prox
       - /path/to/understudy/plex-init:/custom-cont-init.d:ro
 ```
 
-And the script that installs the authority, in `plex-init/10-understudy-ca.sh`, made executable:
+The script goes in `plex-init/10-understudy-ca.sh`, made executable:
 
 ```bash
 #!/bin/bash
@@ -107,11 +113,11 @@ cp /understudy/ca.crt /usr/local/share/ca-certificates/understudy.crt
 update-ca-certificates
 ```
 
-The linuxserver image runs it on every start, so an image upgrade stays trusted. Recreate the Plex container. If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
+Recreate the Plex container. If Plex is on a Docker network rather than the host's, attach it to the `understudy` network as well.
 
 ### Choose portraits
 
-Add the editor to `compose.yml`:
+The editor is where you pick who gets which picture. It talks to Plex to find people, so it needs the token, and it writes only two things: `configuration.yml` and the portraits folder.
 
 ```yaml
   edit:
@@ -134,11 +140,11 @@ Add the editor to `compose.yml`:
 docker compose up -d edit
 ```
 
-Open http://localhost:8090. Search a name, open the person, drop in a photo, crop it, and apply from the review drawer. That writes `configuration.yml` and the portraits folder, nothing else.
+Open http://localhost:8090. Search a name, open the person, drop in a photo, crop it, and apply from the review drawer.
 
 ### Sync
 
-Add the one-shot job:
+The proxy serves by URL, and only Plex knows which URL each person's portrait has right now. Sync asks Plex, writes the answer down for the proxy, and clears Plex's photo cache so the change shows. It runs once and exits.
 
 ```yaml
   sync:
@@ -161,7 +167,7 @@ Add the one-shot job:
 docker compose run --rm sync
 ```
 
-It asks Plex which URL each person's portrait has, writes that down for the proxy, and clears Plex's photo cache. Hard refresh your Plex client and the portraits are yours. Plex changes those URLs now and then, so run it on a schedule too:
+Hard refresh your Plex client and the portraits are yours. Plex changes those URLs now and then, so run sync on a schedule too. It is what keeps a portrait attached when that happens:
 
 ```
 0 * * * *  cd /path/to/understudy && docker compose run --rm sync
