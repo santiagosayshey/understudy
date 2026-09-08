@@ -24,6 +24,18 @@
 
 	const actor = $derived(page?.actor);
 	const override = $derived(page?.override);
+	// titles grouped by library, in the order the libraries first appear
+	const libraries = $derived.by(() => {
+		const groups = new Map<
+			string,
+			typeof actor extends undefined ? never : NonNullable<typeof actor>['titles']
+		>();
+		for (const t of actor?.titles ?? []) {
+			if (!groups.has(t.library)) groups.set(t.library, []);
+			groups.get(t.library)!.push(t);
+		}
+		return [...groups.entries()];
+	});
 </script>
 
 <div class="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
@@ -76,28 +88,27 @@
 			</div>
 		</div>
 
-		<Card title="Appears in" class="mt-8">
-			{#if actor.titles.length}
+		{#each libraries as [library, titles] (library)}
+			<section class="mt-8">
+				<h2 class="text-fg-muted mb-3 text-sm font-medium">{library}</h2>
 				<ul class="flex gap-4 overflow-x-auto pb-2">
-					{#each actor.titles as t (t.ratingKey)}
+					{#each titles as t (t.ratingKey)}
 						<li class="w-28 shrink-0">
 							<img
-								src={api.posterImage(t.ratingKey, 224)}
+								src={api.posterImage(t.ratingKey, 400)}
 								alt=""
 								class="bg-surface-raised aspect-[2/3] w-28 rounded-md object-cover"
 								loading="lazy"
 							/>
 							<p class="mt-2 truncate text-sm font-medium" title={t.name}>{t.name}</p>
-							<p class="text-fg-muted text-xs">
-								{t.year ?? ''}{t.year ? ' · ' : ''}{t.library}
-							</p>
+							<p class="text-fg-muted text-xs">{t.year ?? ''}</p>
 						</li>
 					{/each}
 				</ul>
-			{:else}
-				<p class="text-fg-muted text-sm">Nothing in your libraries.</p>
-			{/if}
-		</Card>
+			</section>
+		{:else}
+			<p class="text-fg-muted mt-8 text-sm">Nothing in your libraries.</p>
+		{/each}
 
 		<div class="mt-6 grid gap-6 sm:grid-cols-2">
 			<Card title="In Plex now">
