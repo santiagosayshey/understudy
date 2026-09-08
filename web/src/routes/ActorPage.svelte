@@ -38,16 +38,7 @@
 	});
 </script>
 
-<div class="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
-	<a
-		href="/"
-		use:link
-		class="text-fg-muted hover:text-fg mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
-	>
-		<ArrowLeft class="size-4" aria-hidden="true" />
-		Search
-	</a>
-
+<div class="mx-auto w-full max-w-3xl px-4 pt-4 pb-16 sm:px-6">
 	{#if error}
 		<p class="text-danger">{error}</p>
 	{:else if !actor}
@@ -56,7 +47,17 @@
 		<div class="flex flex-col gap-6 sm:flex-row sm:items-start">
 			<Avatar src={actor.path ? api.cdnImage(actor.path, 400) : undefined} alt="" size="xl" />
 			<div class="min-w-0 flex-1">
-				<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
+				<div class="flex items-start justify-between gap-4">
+					<h1 class="text-3xl font-semibold tracking-tight">{actor.name}</h1>
+					<a
+						href="/"
+						use:link
+						class="text-fg-muted hover:text-fg mt-2 inline-flex shrink-0 items-center gap-1.5 text-sm transition-colors"
+					>
+						<ArrowLeft class="size-4" aria-hidden="true" />
+						Search
+					</a>
+				</div>
 				<p class="text-fg-muted mt-1">{actor.libraries.join(', ')}</p>
 				<dl
 					class="text-fg-muted mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-xs"
