@@ -7,6 +7,16 @@
 		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" href="/icon.png" type="image/png" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<script>
+			// Apply the saved theme before first paint so the page never flashes.
+			(() => {
+				const t = localStorage.getItem('theme');
+				const dark =
+					t === 'dark' ||
+					(t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+				document.documentElement.classList.toggle('dark', dark);
+			})();
+		</script>
 	</head>
 	<body>
 		<div id="app"></div>

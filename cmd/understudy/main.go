@@ -3,14 +3,8 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
-
-	"github.com/santiagosayshey/understudy/internal/web"
 )
 
 // version is set by the linker at release time.
@@ -49,25 +43,4 @@ func main() {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
 	}
-}
-
-// runEdit serves the embedded page and the editor's API. Only status exists so far.
-func runEdit(args []string) int {
-	fs := flag.NewFlagSet("edit", flag.ContinueOnError)
-	listen := fs.String("listen", envOr("UNDERSTUDY_LISTEN", ":8090"), "address to serve the editor on")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"version": version})
-	})
-	mux.Handle("/", web.Handler())
-	log.Printf("understudy %s: editor on %s", version, *listen)
-	if err := http.ListenAndServe(*listen, mux); err != nil {
-		log.Print(err)
-		return 1
-	}
-	return 0
 }

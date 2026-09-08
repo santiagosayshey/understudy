@@ -1,26 +1,85 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
-/* Design tokens. Everything visual reads from these; components never hard-code a colour. */
-@theme {
-	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-	--color-background: oklch(0.13 0.005 260);
-	--color-surface: oklch(0.18 0.006 260);
-	--color-border: oklch(0.28 0.008 260);
-	--color-foreground: oklch(0.95 0.005 260);
-	--color-muted: oklch(0.68 0.01 260);
-	--color-accent: oklch(0.82 0.16 80);
-	--color-accent-foreground: oklch(0.15 0.02 80);
-	--color-danger: oklch(0.65 0.2 25);
-	--radius: 0.5rem;
+/*
+ * Design tokens. Components read only these names, never a palette step, so
+ * a theme is a set of values behind the same names. Light is the default;
+ * .dark on <html> switches to the dark set.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+	--bg: var(--color-neutral-50);
+	--surface: #fff;
+	--surface-raised: #fff;
+	--surface-hover: var(--color-neutral-200);
+	--border: var(--color-neutral-200);
+	--border-strong: var(--color-neutral-300);
+	--fg: var(--color-neutral-900);
+	--fg-muted: var(--color-neutral-500);
+	--accent: var(--color-neutral-900);
+	--accent-fg: #fff;
+	--accent-hover: var(--color-neutral-700);
+	--success: var(--color-green-600);
+	--warning: var(--color-amber-600);
+	--danger: var(--color-red-600);
+	--ring: var(--color-neutral-400);
+	--shadow-raised: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
+}
+
+.dark {
+	--bg: var(--color-neutral-950);
+	--surface: var(--color-neutral-900);
+	--surface-raised: var(--color-neutral-800);
+	--surface-hover: var(--color-neutral-800);
+	--border: var(--color-neutral-800);
+	--border-strong: var(--color-neutral-700);
+	--fg: var(--color-neutral-50);
+	--fg-muted: var(--color-neutral-400);
+	--accent: var(--color-neutral-50);
+	--accent-fg: var(--color-neutral-900);
+	--accent-hover: var(--color-neutral-300);
+	--success: var(--color-green-400);
+	--warning: var(--color-amber-400);
+	--danger: var(--color-red-400);
+	--ring: var(--color-neutral-500);
+	--shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.4);
+}
+
+@theme inline {
+	--font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-raised: var(--surface-raised);
+	--color-surface-hover: var(--surface-hover);
+	--color-border: var(--border);
+	--color-border-strong: var(--border-strong);
+	--color-fg: var(--fg);
+	--color-fg-muted: var(--fg-muted);
+	--color-accent: var(--accent);
+	--color-accent-fg: var(--accent-fg);
+	--color-accent-hover: var(--accent-hover);
+	--color-success: var(--success);
+	--color-warning: var(--warning);
+	--color-danger: var(--danger);
+	--color-ring: var(--ring);
+	--shadow-raised: var(--shadow-raised);
+	--radius-sm: 0.625rem;
+	--radius-md: 0.875rem;
+	--radius-lg: 1.25rem;
 }
 
 @layer base {
 	html {
 		font-family: var(--font-sans);
+		color-scheme: light;
+	}
+	html.dark {
 		color-scheme: dark;
 	}
 	body {
-		@apply bg-background text-foreground antialiased;
+		@apply bg-bg text-fg antialiased;
 	}
 }
