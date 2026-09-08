@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { ArrowLeft, Upload } from '@lucide/svelte';
+	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
 	import { api, ApiError, type ActorPage } from '$lib/api/client';
 	import { discard, stage } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
 	import Card from '$lib/ui/card/Card.svelte';
+	import Dialog from '$lib/ui/dialog/Dialog.svelte';
 	import FileButton from '$lib/ui/file-button/FileButton.svelte';
 	import Spinner from '$lib/ui/spinner/Spinner.svelte';
 	import { link } from '$lib/router/router.svelte';
@@ -18,6 +19,14 @@
 	let file = $state<File | null>(null);
 	let editing = $state(false);
 	let over = $state(false);
+	let details = $state(false);
+	let copied = $state('');
+
+	async function copy(value: string) {
+		await navigator.clipboard.writeText(value);
+		copied = value;
+		setTimeout(() => (copied = ''), 1200);
+	}
 
 	function load() {
 		api.actor(key)
@@ -119,7 +128,17 @@
 			{/if}
 		</div>
 
-		<Card class="mt-6">
+		<Card class="relative mt-6">
+			<div class="absolute top-3 right-3">
+				<Button
+					variant="ghost"
+					size="icon"
+					label="Details"
+					onclick={() => (details = true)}
+				>
+					<Info class="size-4" aria-hidden="true" />
+				</Button>
+			</div>
 			<div
 				class="flex items-end gap-4 rounded-full transition-shadow {over
 					? 'ring-ring/40 ring-4'
@@ -140,20 +159,6 @@
 					</div>
 				{/if}
 			</div>
-			<dl class="mt-5 space-y-3 font-mono text-xs">
-				{#if actor.tagKey}
-					<div>
-						<dt class="text-fg-muted">person</dt>
-						<dd class="text-fg mt-0.5">{actor.tagKey}</dd>
-					</div>
-				{/if}
-				{#if actor.path}
-					<div>
-						<dt class="text-fg-muted">path</dt>
-						<dd class="text-fg mt-0.5 truncate">{actor.path}</dd>
-					</div>
-				{/if}
-			</dl>
 			{#if actor.path}
 				<div class="mt-5 flex flex-wrap items-center justify-end gap-2">
 					<span class="text-fg-muted mr-auto text-xs"
@@ -195,6 +200,47 @@
 		{:else}
 			<p class="text-fg-muted mt-8 text-sm">Nothing in your libraries.</p>
 		{/each}
+
+		{#snippet row(label: string, value: string)}
+			<div class="flex items-center gap-3 py-2">
+				<span class="text-fg-muted w-20 shrink-0 text-xs">{label}</span>
+				<span class="min-w-0 flex-1 truncate font-mono text-xs">{value}</span>
+				<Button
+					variant="ghost"
+					size="icon"
+					label="Copy {label}"
+					onclick={() => copy(value)}
+				>
+					{#if copied === value}
+						<Check class="text-success size-4" aria-hidden="true" />
+					{:else}
+						<Copy class="size-4" aria-hidden="true" />
+					{/if}
+				</Button>
+			</div>
+		{/snippet}
+		<Dialog bind:open={details} title="Details">
+			<div class="divide-border divide-y">
+				{#if actor.tagKey}
+					{@render row('person', actor.tagKey)}
+				{/if}
+				{#if actor.path}
+					{@render row('path', actor.path)}
+				{/if}
+				{#if override}
+					{@render row('image', override.image)}
+					{#if override.resolved}
+						{@render row('resolved', new Date(override.resolved).toLocaleString())}
+					{/if}
+					{#if override.history?.length}
+						{@render row(
+							'moved',
+							`${override.history.length} time${override.history.length === 1 ? '' : 's'}`
+						)}
+					{/if}
+				{/if}
+			</div>
+		</Dialog>
 
 		<PortraitDialog
 			bind:open={editing}
