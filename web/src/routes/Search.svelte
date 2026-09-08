@@ -16,12 +16,21 @@
 	let active = $state(-1);
 	let focused = $state(false);
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	// The box only moves once typing has paused, so it does not bob while a
+	// name is being typed. Clearing the box brings it straight back.
+	let lifted = $state(false);
+	let liftTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// How many rows fit under the search box: the viewport minus the header,
 	// the box at the top, and room for the "more" line. Recomputed on resize.
 	const rowHeight = 64;
 	let viewport = $state(typeof window === 'undefined' ? 800 : window.innerHeight);
-	const fit = $derived(Math.max(3, Math.floor((viewport - 56 - 140 - 48) / rowHeight)));
+	const fit = $derived(
+		Math.max(
+			3,
+			Math.floor((viewport - 56 - (lifted ? 140 : viewport * 0.3 + 90) - 48) / rowHeight)
+		)
+	);
 	const shown = $derived(results.slice(0, fit));
 	const more = $derived(total - shown.length);
 
@@ -48,6 +57,9 @@
 	function oninput() {
 		clearTimeout(timer);
 		timer = setTimeout(search, 120);
+		clearTimeout(liftTimer);
+		if (!query.trim()) lifted = false;
+		else liftTimer = setTimeout(() => (lifted = query.trim() !== ''), 600);
 	}
 
 	function onkeydown(e: KeyboardEvent) {
@@ -64,7 +76,6 @@
 	}
 
 	const ready = $derived(listing?.loaded ?? false);
-	const lifted = $derived(searched !== '');
 </script>
 
 <svelte:window onresize={() => (viewport = window.innerHeight)} />
