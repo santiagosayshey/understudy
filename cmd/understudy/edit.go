@@ -10,6 +10,7 @@ import (
 
 	"github.com/santiagosayshey/understudy/internal/api"
 	"github.com/santiagosayshey/understudy/internal/plex"
+	"github.com/santiagosayshey/understudy/internal/tmdb"
 	"github.com/santiagosayshey/understudy/internal/web"
 )
 
@@ -21,6 +22,7 @@ func runEdit(args []string) int {
 	c.bind(fs)
 	listen := fs.String("listen", envOr("UNDERSTUDY_LISTEN", ":8090"), "address to serve the editor on")
 	stateDir := fs.String("state", envOr("UNDERSTUDY_STATE", "/state"), "directory the resolving job writes the state file to")
+	tmdbKey := fs.String("tmdb-key", envOr("UNDERSTUDY_TMDB_KEY", ""), "TMDb API key or read access token; the page then offers TMDb's portraits")
 	if err := fs.Parse(args); err != nil {
 		return exitFailed
 	}
@@ -29,16 +31,24 @@ func runEdit(args []string) int {
 		return exitFailed
 	}
 	client := plex.New(c.plexURL, c.plexToken)
+	var movies *tmdb.Client
+	if *tmdbKey != "" {
+		movies = tmdb.New(*tmdbKey)
+	}
 	listing := api.NewListing(client)
 	go listing.Refresh(context.Background())
 	srv := &api.Server{
-		Version: version, Listing: listing, Images: api.NewImages(client), Staging: api.NewStaging(),
-		Config: c.config, Portraits: c.portraits, StateDir: *stateDir,
+		Version: version, Listing: listing, Images: api.NewImages(client, movies), Staging: api.NewStaging(),
+		TMDb: movies, Config: c.config, Portraits: c.portraits, StateDir: *stateDir,
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/api/", srv.Handler())
 	mux.Handle("/", web.Handler())
-	log.Printf("understudy %s: editor on %s, Plex at %s", version, *listen, c.plexURL)
+	from := "no TMDb key"
+	if movies != nil {
+		from = "portraits from TMDb"
+	}
+	log.Printf("understudy %s: editor on %s, Plex at %s, %s", version, *listen, c.plexURL, from)
 	if err := http.ListenAndServe(*listen, mux); err != nil {
 		log.Print(err)
 		return exitFailed

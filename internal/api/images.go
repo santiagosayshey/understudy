@@ -15,20 +15,23 @@ import (
 	"golang.org/x/image/draw"
 
 	"github.com/santiagosayshey/understudy/internal/plex"
+	"github.com/santiagosayshey/understudy/internal/tmdb"
 )
 
 // Images fetches and downsizes pictures for the page: CDN portraits so the
-// page shows what Plex shows now, and posters from Plex. Results are kept in
-// memory, since the same faces come up again and again while searching.
+// page shows what Plex shows now, posters from Plex, and profile images
+// from TMDb when there is a key. Results are kept in memory, since the same
+// faces come up again and again while searching.
 type Images struct {
 	plex *plex.Client
+	tmdb *tmdb.Client // nil without a key
 	http *http.Client
 	mu   sync.Mutex
 	kept map[string][]byte
 }
 
-func NewImages(c *plex.Client) *Images {
-	return &Images{plex: c, http: &http.Client{Timeout: 30 * time.Second}, kept: map[string][]byte{}}
+func NewImages(c *plex.Client, t *tmdb.Client) *Images {
+	return &Images{plex: c, tmdb: t, http: &http.Client{Timeout: 30 * time.Second}, kept: map[string][]byte{}}
 }
 
 // CDN returns the portrait at a CDN path, no wider than width.

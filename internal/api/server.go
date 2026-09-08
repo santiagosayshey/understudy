@@ -14,6 +14,7 @@ import (
 	"github.com/santiagosayshey/understudy/internal/crop"
 	"github.com/santiagosayshey/understudy/internal/face"
 	"github.com/santiagosayshey/understudy/internal/state"
+	"github.com/santiagosayshey/understudy/internal/tmdb"
 )
 
 // Server is the editor's API. Config and state are read fresh on each
@@ -24,7 +25,8 @@ type Server struct {
 	Listing   *Listing
 	Images    *Images
 	Staging   *Staging
-	Config    string // path to configuration.yml
+	TMDb      *tmdb.Client // nil without a key; the page then shows links only
+	Config    string       // path to configuration.yml
 	Portraits string
 	StateDir  string
 }
@@ -35,12 +37,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /api/actors", s.actors)
 	mux.HandleFunc("GET /api/actors/{key}", s.actor)
+	mux.HandleFunc("GET /api/actors/{key}/tmdb", s.actorTMDb)
+	mux.HandleFunc("GET /api/tmdb/people/{id}", s.tmdbPerson)
 	mux.HandleFunc("GET /api/titles/{ratingKey}", s.title)
 	mux.HandleFunc("POST /api/actors/refresh", s.refresh)
 	mux.HandleFunc("GET /api/images/cdn", s.cdnImage)
 	mux.HandleFunc("GET /api/images/poster/{ratingKey}", s.poster)
 	mux.HandleFunc("GET /api/images/portrait", s.portrait)
+	mux.HandleFunc("GET /api/images/tmdb", s.tmdbImage)
 	mux.HandleFunc("POST /api/uploads", s.upload)
+	mux.HandleFunc("POST /api/uploads/tmdb", s.tmdbUpload)
 	mux.HandleFunc("GET /api/uploads/{id}", s.uploadImage)
 	mux.HandleFunc("GET /api/changes", s.changes)
 	mux.HandleFunc("POST /api/changes", s.stage)
@@ -63,10 +69,20 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": "the file is over 40 MB"})
 		return
 	}
-	info, err := crop.Decode(bytes.NewReader(data))
+	resp, err := s.addUpload(data)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// addUpload holds an image for cropping, whether it came from the browser
+// or from TMDb, and describes it for the crop editor.
+func (s *Server) addUpload(data []byte) (map[string]any, error) {
+	info, err := crop.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
 	}
 	id := newID()
 	s.Staging.AddUpload(id, data, info)
@@ -77,7 +93,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			resp["face"] = crop.Box{X: f.X, Y: f.Y, Size: f.Size}
 		}
 	}
-	writeJSON(w, http.StatusOK, resp)
+	return resp, nil
 }
 
 func (s *Server) uploadImage(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +226,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		"listing":   s.Listing.Status(),
 		"overrides": len(entries),
 		"pending":   len(s.Staging.Changes()),
+		"tmdb":      s.TMDb != nil,
 	})
 }
 

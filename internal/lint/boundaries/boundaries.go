@@ -21,6 +21,7 @@ var rules = map[string][]forbidden{
 		{"internal/plex", "the proxy never talks to Plex's API; it reads the state file"},
 		{"internal/api", "the proxy does not know about the editor"},
 		{"internal/resolve", "resolving is the sync job's, not the proxy's"},
+		{"internal/tmdb", "the proxy fetches from Plex's CDN and nowhere else"},
 	},
 	"internal/state": {
 		{"internal/plex", "state is derived from resolve outcomes, never from Plex directly"},
@@ -31,6 +32,9 @@ var rules = map[string][]forbidden{
 	},
 	"internal/plex": {
 		{"internal/", "the Plex client depends on nothing of ours"},
+	},
+	"internal/tmdb": {
+		{"internal/", "the TMDb client depends on nothing of ours"},
 	},
 	"internal/config": {
 		{"internal/plex", "the configuration is checked without Plex; resolving is separate"},

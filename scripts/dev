@@ -11,19 +11,27 @@ WEB=5173
 # The editor works on a throwaway configuration under dev/ (ignored by git),
 # and reads Plex through whatever UNDERSTUDY_PLEX_URL points at.
 PLEX=${UNDERSTUDY_PLEX_URL:-http://localhost:8080/plex}
+# A TMDb key makes the actor page offer TMDb's portraits. It comes from the
+# environment or from .env at the root, which git ignores.
+if [ -f .env ]; then
+	set -a
+	. ./.env
+	set +a
+fi
 mkdir -p dev/portraits dev/state
 [ -f dev/configuration.yml ] || printf 'version: 1\npeople: []\n' > dev/configuration.yml
 
 bold=$'\e[1m' dim=$'\e[2m' reset=$'\e[0m' green=$'\e[32m' blue=$'\e[34m'
 printf '%sunderstudy dev%s\n' "$bold" "$reset"
 printf '  %sapi%s  http://%s        rebuilds on Go changes, Plex via %s\n' "$green" "$reset" "$API" "$PLEX"
+[ -n "${UNDERSTUDY_TMDB_KEY:-}" ] && printf '  %stmdb%s key set, portraits from TMDb\n' "$green" "$reset"
 printf '  %sweb%s  http://localhost:%s        hot reload, proxies /api to the binary\n' "$blue" "$reset" "$WEB"
 printf '  %sctrl-c stops both%s\n\n' "$dim" "$reset"
 
 trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
 
 go run "$WGO" run -file=.go -xdir=web ./cmd/understudy edit --listen "$API" --plex-url "$PLEX" \
-	--config dev/configuration.yml --portraits dev/portraits --state dev/state 2>&1 \
+	--config dev/configuration.yml --portraits dev/portraits --state dev/state --tmdb-key "${UNDERSTUDY_TMDB_KEY:-}" 2>&1 \
 	| sed -u "s/^/${green}api${reset}  /" &
 (cd web && FORCE_COLOR=1 exec pnpm --silent dev --clearScreen false --strictPort --port "$WEB" 2>&1) \
 	| sed -u "s/^/${blue}web${reset}  /" &

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ArrowLeft, Check, Copy, Info, Upload } from '@lucide/svelte';
-	import { api, ApiError, type ActorPage } from '$lib/api/client';
+	import { api, ApiError, type ActorPage, type UploadSource } from '$lib/api/client';
 	import { discard, stage, pending } from '$lib/changes/changes.svelte';
 	import Avatar from '$lib/ui/avatar/Avatar.svelte';
 	import Badge from '$lib/ui/badge/Badge.svelte';
@@ -11,12 +11,13 @@
 	import Tooltip from '$lib/ui/tooltip/Tooltip.svelte';
 	import { link } from '$lib/router/router.svelte';
 	import PortraitDialog from '$lib/editor/PortraitDialog.svelte';
+	import TmdbPicker from '$lib/editor/TmdbPicker.svelte';
 
-	let { key }: { key: string } = $props();
+	let { key, tmdb }: { key: string; tmdb: boolean } = $props();
 
 	let page = $state<ActorPage | null>(null);
 	let error = $state<string | null>(null);
-	let file = $state<File | null>(null);
+	let source = $state<UploadSource | null>(null);
 	let editing = $state(false);
 	let over = $state(false);
 	let details = $state(false);
@@ -76,7 +77,11 @@
 	});
 
 	function choose(f: File) {
-		file = f;
+		source = { file: f };
+		editing = true;
+	}
+	function pick(path: string) {
+		source = { tmdb: path };
 		editing = true;
 	}
 	function ondrop(e: DragEvent) {
@@ -188,6 +193,10 @@
 			</div>
 		</div>
 
+		{#if actor.path}
+			<TmdbPicker actorKey={actor.key} actorName={actor.name} enabled={tmdb} onpick={pick} />
+		{/if}
+
 		{#each libraries as [library, titles] (library)}
 			<section class="mt-8">
 				<h2 class="text-fg-muted mb-3 text-sm font-medium">{library}</h2>
@@ -259,7 +268,7 @@
 			bind:open={editing}
 			actorKey={actor.key}
 			actorName={actor.name}
-			{file}
+			{source}
 			onstaged={load}
 		/>
 	{/if}

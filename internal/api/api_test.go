@@ -6,8 +6,11 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/santiagosayshey/understudy/internal/crop"
 	"github.com/santiagosayshey/understudy/internal/plex"
 	"github.com/santiagosayshey/understudy/internal/plex/plextest"
+	"github.com/santiagosayshey/understudy/internal/tmdb"
 )
 
 func loadedListing(t *testing.T) *Listing {
@@ -240,5 +244,68 @@ func TestUnlistedPerson(t *testing.T) {
 	}
 	if people, _ := l.People(context.Background(), "cailee"); len(people) != 0 {
 		t.Errorf("listed people should not come back from search: %+v", people)
+	}
+}
+
+func TestRankPeople(t *testing.T) {
+	titles := []Title{{Name: "Priscilla"}, {Name: "Civil War"}}
+	people := []tmdb.Person{
+		{ID: 1, Name: "A", Popularity: 50, KnownFor: []string{"Something Else"}},
+		{ID: 2, Name: "B", Popularity: 1, KnownFor: []string{"priscilla "}},
+		{ID: 3, Name: "C", Popularity: 5, KnownFor: []string{"Civil War", "Priscilla"}},
+		{ID: 4, Name: "D", Popularity: 60},
+	}
+	var ids []int
+	for _, p := range rankPeople(people, titles) {
+		ids = append(ids, p.ID)
+	}
+	if want := []int{3, 2, 4, 1}; !slices.Equal(ids, want) {
+		t.Errorf("titles in the libraries first, case and space aside, then popularity: got %v want %v", ids, want)
+	}
+	if got := rankPeople(nil, titles); len(got) != 0 {
+		t.Errorf("nothing in, nothing out: %v", got)
+	}
+}
+
+func TestTMDbPath(t *testing.T) {
+	for p, want := range map[string]bool{
+		"/abc.jpg": true, "abc.jpg": false, "/a/b.jpg": false, "/../x.jpg": false, "": false, "/": true,
+	} {
+		if got := tmdbPath(p); got != want {
+			t.Errorf("%q: got %v want %v", p, got, want)
+		}
+	}
+}
+
+// A profile image fetched from TMDb becomes an upload like any other, so
+// the crop and the stage that follow need nothing new.
+func TestTMDbUpload(t *testing.T) {
+	data := upload(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/original/p.jpg" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write(data)
+	}))
+	t.Cleanup(srv.Close)
+	c := tmdb.New("k")
+	c.Images = srv.URL
+	s := &Server{Staging: NewStaging(), TMDb: c}
+
+	raw, err := c.Image(context.Background(), "/p.jpg", "original")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := s.addUpload(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, ok := s.Staging.Upload(resp["id"].(string))
+	if !ok || u.Width != 600 || u.Height != 900 || resp["format"] != "jpeg" {
+		t.Errorf("upload: %+v %v %v", u, ok, resp)
+	}
+	if _, err := s.addUpload([]byte("not an image")); err == nil {
+		t.Error("what TMDb returns still has to decode")
 	}
 }

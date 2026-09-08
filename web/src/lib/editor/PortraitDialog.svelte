@@ -1,7 +1,7 @@
 <script lang="ts">
-	// Choose a file, crop it, stage it. The dialog owns the upload; the
-	// actor page only learns that a change was staged.
-	import { api, type UploadInfo } from '$lib/api/client';
+	// Choose a file or one of TMDb's, crop it, stage it. The dialog owns the
+	// upload; the actor page only learns that a change was staged.
+	import { api, type UploadInfo, type UploadSource } from '$lib/api/client';
 	import { stage } from '$lib/changes/changes.svelte';
 	import Dialog from '$lib/ui/dialog/Dialog.svelte';
 	import Button from '$lib/ui/button/Button.svelte';
@@ -12,13 +12,13 @@
 		open = $bindable(false),
 		actorKey,
 		actorName,
-		file,
+		source,
 		onstaged,
 	}: {
 		open?: boolean;
 		actorKey: string;
 		actorName: string;
-		file: File | null;
+		source: UploadSource | null;
 		onstaged: () => void;
 	} = $props();
 
@@ -28,12 +28,11 @@
 	let busy = $state(false);
 
 	$effect(() => {
-		if (!open || !file) return;
+		if (!open || !source) return;
 		upload = null;
 		error = null;
-		api.upload(file)
-			.then((u) => (upload = u))
-			.catch((e: Error) => (error = e.message));
+		const held = 'file' in source ? api.upload(source.file) : api.tmdbUpload(source.tmdb);
+		held.then((u) => (upload = u)).catch((e: Error) => (error = e.message));
 	});
 
 	async function save() {
@@ -65,7 +64,9 @@
 			bind:crop
 		/>
 	{:else if !error}
-		<p class="text-fg-muted text-sm">Uploading…</p>
+		<p class="text-fg-muted text-sm">
+			{source && 'tmdb' in source ? 'Fetching from TMDb…' : 'Uploading…'}
+		</p>
 	{/if}
 	{#snippet footer()}
 		<div class="flex items-center justify-between gap-2">
