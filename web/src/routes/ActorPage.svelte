@@ -194,14 +194,18 @@
 				<ul class="flex gap-4 overflow-x-auto pb-4">
 					{#each titles as t (t.ratingKey)}
 						<li class="w-28 shrink-0">
-							<img
-								src={api.posterImage(t.ratingKey, 400)}
-								alt=""
-								class="bg-surface-raised aspect-2/3 w-28 rounded-md object-cover"
-								loading="lazy"
-							/>
-							<p class="mt-2 truncate text-sm font-medium" title={t.name}>{t.name}</p>
-							<p class="text-fg-muted text-xs">{t.year ?? ''}</p>
+							<a href="/titles/{t.ratingKey}" use:link class="group block">
+								<img
+									src={api.posterImage(t.ratingKey, 400)}
+									alt=""
+									class="bg-surface-raised aspect-2/3 w-28 rounded-md object-cover transition-opacity group-hover:opacity-80"
+									loading="lazy"
+								/>
+								<p class="mt-2 truncate text-sm font-medium" title={t.name}>
+									{t.name}
+								</p>
+								<p class="text-fg-muted text-xs">{t.year ?? ''}</p>
+							</a>
 						</li>
 					{/each}
 				</ul>

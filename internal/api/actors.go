@@ -222,3 +222,46 @@ func (l *Listing) Detail(ctx context.Context, key string) (Detail, bool, error) 
 	sort.SliceStable(d.Titles, func(i, j int) bool { return d.Titles[i].Year > d.Titles[j].Year })
 	return d, true, nil
 }
+
+// TitleInfo is one movie or show as the title page sees it.
+type TitleInfo struct {
+	RatingKey string `json:"ratingKey"`
+	Name      string `json:"name"`
+	Year      int    `json:"year,omitempty"`
+	Type      string `json:"type"`
+	Library   string `json:"library"`
+}
+
+// CastMember is one person in a title's cast. Listed is false for people
+// Plex leaves out of its actor listing, who have no actor page.
+type CastMember struct {
+	Actor
+	TagKey string `json:"tagKey,omitempty"`
+	Role   string `json:"role,omitempty"`
+	Listed bool   `json:"listed"`
+}
+
+// Title fetches one title and its cast, each cast member matched to the
+// listing when Plex lists them. The third result is false for no such
+// title.
+func (l *Listing) Title(ctx context.Context, ratingKey string) (TitleInfo, []CastMember, bool, error) {
+	it, ok, err := l.plex.Item(ctx, ratingKey)
+	if err != nil || !ok {
+		return TitleInfo{}, nil, ok, err
+	}
+	info := TitleInfo{RatingKey: it.RatingKey, Name: it.Title, Year: it.Year, Type: it.Type, Library: it.Library}
+	cast := make([]CastMember, 0, len(it.Roles))
+	for _, r := range it.Roles {
+		m := CastMember{TagKey: r.TagKey, Role: r.Role}
+		if a, ok := l.Get(r.Key); ok {
+			m.Actor, m.Listed = a, true
+		} else {
+			m.Actor = Actor{Key: r.Key, Name: r.Name, Libraries: []string{}}
+			if path, ok := plex.Path(r.Thumb); ok {
+				m.Actor.Path = path
+			}
+		}
+		cast = append(cast, m)
+	}
+	return info, cast, true, nil
+}

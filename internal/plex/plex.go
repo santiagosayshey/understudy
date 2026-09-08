@@ -60,6 +60,7 @@ type Role struct {
 	Name   string
 	TagKey string
 	Thumb  string
+	Role   string // the character, when Plex knows it
 }
 
 // Path turns a portrait URL into its CDN path. The second value is false for
@@ -142,30 +143,55 @@ func (c *Client) Titles(ctx context.Context, section, actor string) ([]Title, er
 	return titles, nil
 }
 
-// Roles returns the cast of one title.
-func (c *Client) Roles(ctx context.Context, ratingKey string) ([]Role, error) {
+// Item is one movie or show with its cast.
+type Item struct {
+	RatingKey string
+	Title     string
+	Year      int
+	Type      string
+	Library   string
+	Roles     []Role
+}
+
+// Item returns one title and its cast. The second result is false when
+// Plex has no such title.
+func (c *Client) Item(ctx context.Context, ratingKey string) (Item, bool, error) {
 	var out struct {
 		MediaContainer struct {
 			Metadata []struct {
-				Role []struct {
+				RatingKey str    `json:"ratingKey"`
+				Title     string `json:"title"`
+				Year      int    `json:"year"`
+				Type      string `json:"type"`
+				Library   string `json:"librarySectionTitle"`
+				Role      []struct {
 					ID     str    `json:"id"`
 					Tag    string `json:"tag"`
 					TagKey string `json:"tagKey"`
 					Thumb  string `json:"thumb"`
+					Role   string `json:"role"`
 				} `json:"Role"`
 			}
 		}
 	}
 	if err := c.get(ctx, "/library/metadata/"+url.PathEscape(ratingKey), &out); err != nil {
-		return nil, err
+		return Item{}, false, err
 	}
-	var roles []Role
-	for _, m := range out.MediaContainer.Metadata {
-		for _, r := range m.Role {
-			roles = append(roles, Role{Key: string(r.ID), Name: r.Tag, TagKey: r.TagKey, Thumb: r.Thumb})
-		}
+	if len(out.MediaContainer.Metadata) == 0 {
+		return Item{}, false, nil
 	}
-	return roles, nil
+	m := out.MediaContainer.Metadata[0]
+	it := Item{RatingKey: string(m.RatingKey), Title: m.Title, Year: m.Year, Type: m.Type, Library: m.Library}
+	for _, r := range m.Role {
+		it.Roles = append(it.Roles, Role{Key: string(r.ID), Name: r.Tag, TagKey: r.TagKey, Thumb: r.Thumb, Role: r.Role})
+	}
+	return it, true, nil
+}
+
+// Roles returns the cast of one title.
+func (c *Client) Roles(ctx context.Context, ratingKey string) ([]Role, error) {
+	it, _, err := c.Item(ctx, ratingKey)
+	return it.Roles, err
 }
 
 // Thumb returns a title's poster image as Plex stores it.
