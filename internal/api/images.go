@@ -50,6 +50,17 @@ func (im *Images) CDN(ctx context.Context, path string, width int) ([]byte, erro
 	})
 }
 
+// Poster returns a title's poster from Plex, no wider than width.
+func (im *Images) Poster(ctx context.Context, ratingKey string, width int) ([]byte, error) {
+	return im.cached("poster:"+ratingKey+fmt.Sprint(width), func() ([]byte, error) {
+		raw, err := im.plex.Thumb(ctx, ratingKey)
+		if err != nil {
+			return nil, err
+		}
+		return shrink(bytes.NewReader(raw), width)
+	})
+}
+
 func (im *Images) cached(key string, load func() ([]byte, error)) ([]byte, error) {
 	im.mu.Lock()
 	b, ok := im.kept[key]

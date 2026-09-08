@@ -27,8 +27,11 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /api/actors", s.actors)
+	mux.HandleFunc("GET /api/actors/{key}", s.actor)
 	mux.HandleFunc("POST /api/actors/refresh", s.refresh)
 	mux.HandleFunc("GET /api/images/cdn", s.cdnImage)
+	mux.HandleFunc("GET /api/images/poster/{ratingKey}", s.poster)
+	mux.HandleFunc("GET /api/images/portrait", s.portrait)
 	return mux
 }
 
@@ -70,6 +73,66 @@ func (s *Server) actors(w http.ResponseWriter, r *http.Request) {
 		out = []result{}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// actor is one person with their titles, the configuration entry if any,
+// and whether the state's path has drifted from the live one.
+func (s *Server) actor(w http.ResponseWriter, r *http.Request) {
+	if !s.Listing.Status().Loaded {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "the actor listing is still loading"})
+		return
+	}
+	d, ok, err := s.Listing.Detail(r.Context(), r.PathValue("key"))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no actor with that key"})
+		return
+	}
+	entries, _ := s.entries()
+	stateFile, _ := state.Load(s.StateDir)
+	out := map[string]any{"actor": d}
+	if e := entryFor(entries, d.Name); e != nil {
+		override := map[string]any{"name": e.Name, "tagKey": e.TagKey, "image": e.Image}
+		if se := stateEntryFor(stateFile, e); se != nil {
+			override["path"] = se.Path
+			override["resolved"] = se.Resolved
+			override["history"] = se.History
+			override["problem"] = se.Problem
+			override["drift"] = se.Path != "" && se.Path != d.Path
+		}
+		out["override"] = override
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) poster(w http.ResponseWriter, r *http.Request) {
+	width, _ := strconv.Atoi(r.URL.Query().Get("w"))
+	if width <= 0 || width > 800 {
+		width = 200
+	}
+	b, err := s.Images.Poster(r.Context(), r.PathValue("ratingKey"), width)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Write(b)
+}
+
+// portrait serves an image from the portraits directory, for showing the
+// current override.
+func (s *Server) portrait(w http.ResponseWriter, r *http.Request) {
+	file, ok := config.ImagePath(s.Portraits, r.URL.Query().Get("image"))
+	if !ok {
+		http.Error(w, "bad image path", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeFile(w, r, file)
 }
 
 func (s *Server) refresh(w http.ResponseWriter, r *http.Request) {

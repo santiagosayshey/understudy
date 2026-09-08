@@ -165,3 +165,58 @@ func wordPrefix(name, q string) bool {
 }
 
 func norm(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), " ")) }
+
+// Detail is one actor with everything the page shows to confirm identity.
+type Detail struct {
+	Actor
+	TagKey string  `json:"tagKey,omitempty"`
+	Titles []Title `json:"titles"`
+}
+
+// Title is something the actor appears in.
+type Title struct {
+	RatingKey string `json:"ratingKey"`
+	Name      string `json:"name"`
+	Year      int    `json:"year,omitempty"`
+	Library   string `json:"library"`
+}
+
+// Detail fetches the actor's titles across the libraries and their person id
+// from the first title's cast, since the listing does not carry it.
+func (l *Listing) Detail(ctx context.Context, key string) (Detail, bool, error) {
+	a, ok := l.Get(key)
+	if !ok {
+		return Detail{}, false, nil
+	}
+	l.mu.RLock()
+	sections := append([]plex.Section(nil), l.sections...)
+	l.mu.RUnlock()
+	d := Detail{Actor: a, Titles: []Title{}}
+	seen := map[string]bool{}
+	for _, s := range sections {
+		titles, err := l.plex.Titles(ctx, s.Key, key)
+		if err != nil {
+			return d, true, err
+		}
+		for _, t := range titles {
+			if seen[t.RatingKey] {
+				continue
+			}
+			seen[t.RatingKey] = true
+			d.Titles = append(d.Titles, Title{RatingKey: t.RatingKey, Name: t.Name, Year: t.Year, Library: s.Title})
+			if d.TagKey == "" {
+				roles, err := l.plex.Roles(ctx, t.RatingKey)
+				if err != nil {
+					return d, true, err
+				}
+				for _, r := range roles {
+					if r.Key == key {
+						d.TagKey = r.TagKey
+					}
+				}
+			}
+		}
+	}
+	sort.SliceStable(d.Titles, func(i, j int) bool { return d.Titles[i].Year > d.Titles[j].Year })
+	return d, true, nil
+}

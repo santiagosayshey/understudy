@@ -4,7 +4,11 @@
 		"target": "es2023",
 		"module": "esnext",
 		"moduleResolution": "bundler",
-		"types": ["svelte", "vite/client", "node"],
+		"types": [
+			"svelte",
+			"vite/client",
+			"node"
+		],
 		"allowArbitraryExtensions": true,
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
@@ -17,9 +21,21 @@
 		"noFallthroughCasesInSwitch": true,
 		"skipLibCheck": true,
 		"paths": {
-			"$lib": ["./src/lib"],
-			"$lib/*": ["./src/lib/*"]
+			"$lib": [
+				"./src/lib"
+			],
+			"$lib/*": [
+				"./src/lib/*"
+			]
 		}
 	},
-	"include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "vite.config.ts", "eslint.config.js"]
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.js",
+		"src/**/*.svelte",
+		"vite.config.ts"
+	],
+	"exclude": [
+		"eslint"
+	]
 }
