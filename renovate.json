@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":disableDependencyDashboard"],
+  "timezone": "Australia/Adelaide",
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "7 days",
+  "automerge": false,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the staticcheck version run by make check",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["honnef\\.co/go/tools/cmd/staticcheck@(?<currentValue>\\S+)"],
+      "depNameTemplate": "honnef.co/go/tools",
+      "datasourceTemplate": "go"
+    },
+    {
+      "customType": "regex",
+      "description": "Track the wgo version run by make dev",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["github\\.com/bokwoon95/wgo@(?<currentValue>\\S+)"],
+      "depNameTemplate": "github.com/bokwoon95/wgo",
+      "datasourceTemplate": "go"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Group routine updates",
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "routine updates"
+    }
+  ]
+}

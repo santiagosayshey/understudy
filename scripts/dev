@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Development server: the Go binary rebuilt and restarted on every Go change,
+# and Vite with hot reload beside it, proxying /api to the binary. One terminal,
+# each line prefixed with where it came from. Ctrl-C stops both.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+WGO=${WGO:-github.com/bokwoon95/wgo@v0.7.1}
+API=${UNDERSTUDY_LISTEN:-127.0.0.1:8090}
+WEB=5173
+
+bold=$'\e[1m' dim=$'\e[2m' reset=$'\e[0m' green=$'\e[32m' blue=$'\e[34m'
+printf '%sunderstudy dev%s\n' "$bold" "$reset"
+printf '  %sapi%s  http://%s        rebuilds on Go changes\n' "$green" "$reset" "$API"
+printf '  %sweb%s  http://localhost:%s        hot reload, proxies /api to the binary\n' "$blue" "$reset" "$WEB"
+printf '  %sctrl-c stops both%s\n\n' "$dim" "$reset"
+
+trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
+
+go run "$WGO" run -file=.go -xdir=web ./cmd/understudy edit --listen "$API" 2>&1 \
+	| sed -u "s/^/${green}api${reset}  /" &
+(cd web && FORCE_COLOR=1 exec pnpm --silent dev --clearScreen false --strictPort --port "$WEB" 2>&1) \
+	| sed -u "s/^/${blue}web${reset}  /" &
+
+wait

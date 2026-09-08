@@ -1,0 +1,9 @@
+.git
+.github
+docs
+web/node_modules
+internal/web/dist
+bin
+state
+certs
+.env
