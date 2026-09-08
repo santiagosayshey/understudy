@@ -59,7 +59,7 @@
 		timer = setTimeout(search, 120);
 		clearTimeout(liftTimer);
 		if (!query.trim()) lifted = false;
-		else liftTimer = setTimeout(() => (lifted = query.trim() !== ''), 600);
+		else liftTimer = setTimeout(() => (lifted = query.trim() !== ''), 400);
 	}
 
 	function onkeydown(e: KeyboardEvent) {
