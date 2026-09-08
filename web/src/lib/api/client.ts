@@ -8,7 +8,12 @@ export type ListingStatus = {
 	libraries: string[] | null;
 };
 
-export type Status = { version: string; listing: ListingStatus; overrides: number };
+export type Status = {
+	version: string;
+	listing: ListingStatus;
+	overrides: number;
+	pending: number;
+};
 
 export type Actor = {
 	key: string;
@@ -34,7 +39,21 @@ export type Override = {
 	drift?: boolean;
 };
 
-export type ActorPage = { actor: Detail; override?: Override };
+export type Change = {
+	key: string;
+	name: string;
+	tagKey?: string;
+	kind: 'set' | 'remove';
+	image?: string;
+	path?: string;
+	stagedAt: string;
+};
+
+export type ActorPage = { actor: Detail; override?: Override; staged?: Change };
+
+export type UploadInfo = { id: string; width: number; height: number; format: string };
+
+export type Applied = { written: string[]; removed: string[] };
 
 export class ApiError extends Error {
 	constructor(
@@ -109,4 +128,27 @@ export const api = {
 	posterImage: (ratingKey: string, w = 200) =>
 		`/api/images/poster/${encodeURIComponent(ratingKey)}?w=${w}`,
 	portraitImage: (image: string) => `/api/images/portrait?image=${encodeURIComponent(image)}`,
+	upload: (file: File) =>
+		request<UploadInfo>('/api/uploads', {
+			method: 'POST',
+			body: file,
+			headers: { 'Content-Type': 'application/octet-stream' },
+		}),
+	uploadImage: (id: string) => `/api/uploads/${id}`,
+	changes: () => request<Change[]>('/api/changes'),
+	stage: (body: {
+		key: string;
+		kind: 'set' | 'remove';
+		upload?: string;
+		crop?: { x: number; y: number; size: number };
+	}) =>
+		request<Change>('/api/changes', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+		}),
+	discard: (key: string) =>
+		request<void>('/api/changes/' + encodeURIComponent(key), { method: 'DELETE' }),
+	changeImage: (key: string, v = '') => `/api/changes/${encodeURIComponent(key)}/image?v=${v}`,
+	apply: () => request<Applied>('/api/apply', { method: 'POST' }),
 };

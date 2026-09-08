@@ -5,6 +5,7 @@
 	let {
 		variant = 'primary',
 		size = 'md',
+		label,
 		href,
 		type = 'button',
 		disabled = false,
@@ -13,7 +14,9 @@
 		children,
 	}: {
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'sm' | 'md' | 'lg' | 'icon';
+		/** Accessible name for an icon-only button. */
+		label?: string;
 		href?: string;
 		type?: 'button' | 'submit';
 		disabled?: boolean;
@@ -24,7 +27,12 @@
 
 	const base =
 		'inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50';
-	const sizes = { sm: 'h-8 px-3 text-sm', md: 'h-10 px-4 text-sm', lg: 'h-12 px-6 text-base' };
+	const sizes = {
+		sm: 'h-8 px-3 text-sm',
+		md: 'h-10 px-4 text-sm',
+		lg: 'h-12 px-6 text-base',
+		icon: 'size-8',
+	};
 	const variants = {
 		primary: 'bg-accent text-accent-fg hover:bg-accent-hover',
 		secondary:
@@ -36,9 +44,16 @@
 </script>
 
 {#if href}
-	<a {href} class={cls} use:link>{@render children()}</a>
+	<a {href} class={cls} aria-label={label} use:link>{@render children()}</a>
 {:else}
-	<button {type} disabled={disabled || loading} {onclick} class={cls} aria-busy={loading}>
+	<button
+		{type}
+		disabled={disabled || loading}
+		{onclick}
+		class={cls}
+		aria-busy={loading}
+		aria-label={label}
+	>
 		{#if loading}
 			<span
 				class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"

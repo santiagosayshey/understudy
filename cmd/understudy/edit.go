@@ -32,7 +32,7 @@ func runEdit(args []string) int {
 	listing := api.NewListing(client)
 	go listing.Refresh(context.Background())
 	srv := &api.Server{
-		Version: version, Listing: listing, Images: api.NewImages(client),
+		Version: version, Listing: listing, Images: api.NewImages(client), Staging: api.NewStaging(),
 		Config: c.config, Portraits: c.portraits, StateDir: *stateDir,
 	}
 	mux := http.NewServeMux()

@@ -1,12 +1,17 @@
 package api
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/santiagosayshey/understudy/internal/config"
+	"github.com/santiagosayshey/understudy/internal/crop"
 	"github.com/santiagosayshey/understudy/internal/state"
 )
 
@@ -17,6 +22,7 @@ type Server struct {
 	Version   string
 	Listing   *Listing
 	Images    *Images
+	Staging   *Staging
 	Config    string // path to configuration.yml
 	Portraits string
 	StateDir  string
@@ -32,7 +38,147 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/images/cdn", s.cdnImage)
 	mux.HandleFunc("GET /api/images/poster/{ratingKey}", s.poster)
 	mux.HandleFunc("GET /api/images/portrait", s.portrait)
+	mux.HandleFunc("POST /api/uploads", s.upload)
+	mux.HandleFunc("GET /api/uploads/{id}", s.uploadImage)
+	mux.HandleFunc("GET /api/changes", s.changes)
+	mux.HandleFunc("POST /api/changes", s.stage)
+	mux.HandleFunc("DELETE /api/changes/{key}", s.discard)
+	mux.HandleFunc("GET /api/changes/{key}/image", s.changeImage)
+	mux.HandleFunc("POST /api/apply", s.apply)
 	return mux
+}
+
+// maxUpload caps an uploaded file.
+const maxUpload = 40 << 20
+
+func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxUpload+1))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if len(data) > maxUpload {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": "the file is over 40 MB"})
+		return
+	}
+	info, err := crop.Decode(bytes.NewReader(data))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	id := newID()
+	s.Staging.AddUpload(id, data, info)
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "width": info.Width, "height": info.Height, "format": info.Format})
+}
+
+func (s *Server) uploadImage(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.Staging.Upload(r.PathValue("id"))
+	if !ok {
+		http.Error(w, "no such upload", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/"+u.Format)
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Write(u.data)
+}
+
+func (s *Server) changes(w http.ResponseWriter, r *http.Request) {
+	cs := s.Staging.Changes()
+	if cs == nil {
+		cs = []*Change{}
+	}
+	writeJSON(w, http.StatusOK, cs)
+}
+
+// stage records a change for an actor: a crop of an upload, or a removal.
+func (s *Server) stage(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Key    string   `json:"key"`
+		Kind   string   `json:"kind"`
+		Upload string   `json:"upload"`
+		Crop   crop.Box `json:"crop"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bad request"})
+		return
+	}
+	d, ok, err := s.Listing.Detail(r.Context(), req.Key)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no actor with that key"})
+		return
+	}
+	c := &Change{Key: d.Key, Name: d.Name, TagKey: d.TagKey, Path: d.Path, Kind: req.Kind}
+	switch req.Kind {
+	case "set":
+		if d.Path == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Plex has no portrait for this person, so nothing is ever requested and there is nothing to override"})
+			return
+		}
+		u, ok := s.Staging.Upload(req.Upload)
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "the upload has expired; choose the file again"})
+			return
+		}
+		out, err := crop.Square(u.data, req.Crop)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		c.Image = Slug(d.Name)
+		c.portrait = out
+	case "remove":
+		entries, _ := s.entries()
+		if entryFor(entries, d.Name) == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "there is no override to remove"})
+			return
+		}
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "kind must be set or remove"})
+		return
+	}
+	s.Staging.Stage(c)
+	writeJSON(w, http.StatusOK, c)
+}
+
+func (s *Server) discard(w http.ResponseWriter, r *http.Request) {
+	s.Staging.Discard(r.PathValue("key"))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) changeImage(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.Staging.Change(r.PathValue("key"))
+	if !ok || c.portrait == nil {
+		http.Error(w, "no staged portrait", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(c.portrait)
+}
+
+func (s *Server) apply(w http.ResponseWriter, r *http.Request) {
+	done, err := s.Staging.Apply(r.Context(), s.Config, s.Portraits)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error(), "applied": done})
+		return
+	}
+	if done.Written == nil {
+		done.Written = []string{}
+	}
+	if done.Removed == nil {
+		done.Removed = []string{}
+	}
+	writeJSON(w, http.StatusOK, done)
+}
+
+func newID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +187,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		"version":   s.Version,
 		"listing":   s.Listing.Status(),
 		"overrides": len(entries),
+		"pending":   len(s.Staging.Changes()),
 	})
 }
 
@@ -105,6 +252,9 @@ func (s *Server) actor(w http.ResponseWriter, r *http.Request) {
 			override["drift"] = se.Path != "" && se.Path != d.Path
 		}
 		out["override"] = override
+	}
+	if c, ok := s.Staging.Change(d.Key); ok {
+		out["staged"] = c
 	}
 	writeJSON(w, http.StatusOK, out)
 }
