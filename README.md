@@ -41,7 +41,7 @@ Understudy changes a portrait wherever Plex's server fetches it. A client that l
 | LG TV | replaced |
 | iOS | not replaced; the app fetches the CDN itself |
 
-The actor's own page uses a second, larger picture of the person that sync does not know about yet, so it shows Plex's picture in every client.
+The actor's own page is a Discover page. Plex Web loads its pictures, the avatar and the larger one, from plex.tv directly rather than through the server, so it shows Plex's picture in every client. Nothing on the server can change that.
 
 ## Getting started
 

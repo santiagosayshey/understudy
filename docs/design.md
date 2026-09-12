@@ -349,7 +349,7 @@ The behaviour the design relies on, verified on Plex Media Server 1.43.3.
 
 ### A.1 Fetching
 
-Clients never fetch the CDN. The server's photo transcoder downloads the image over HTTPS, honours the container's hosts file, and verifies the certificate against its bundled roots and the system store.
+For cast lists, clients never fetch the CDN. The server's photo transcoder downloads the image over HTTPS, honours the container's hosts file, and verifies the certificate against its bundled roots and the system store. Discover pages, such as an actor's own page, are the exception: Plex Web loads their images from images.plex.tv itself.
 
 ### A.2 Server cache
 
@@ -369,7 +369,7 @@ A library's actor listing holds only people billed in the top three of at least 
 
 ### A.6 Which clients ask the server
 
-Plex Web, Plex for Windows, Plex HTPC, and the Apple TV and LG TV apps ask the server for cast portraits, so the override reaches them. The iOS app takes the CDN address from the item's metadata and fetches it itself, so nothing on the server can change what it shows. The actor's own page, in every client, uses a second and larger picture of the person from a different URL, which the resolving job does not know.
+Plex Web, Plex for Windows, Plex HTPC, and the Apple TV and LG TV apps ask the server for cast portraits, so the override reaches them. The iOS app takes the CDN address from the item's metadata and fetches it itself, so nothing on the server can change what it shows. The actor's own page is a Discover page, and its pictures, the avatar included, are fetched by the client from images.plex.tv, so the override reaches none of them.
 
 ## Appendix B: Measurements
 
