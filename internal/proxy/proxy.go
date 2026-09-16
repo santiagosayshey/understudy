@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -39,6 +40,8 @@ type Options struct {
 	StateDir  string
 	Portraits string
 	Logger    *log.Logger
+	// Version is reported by the health endpoint.
+	Version string
 	// Poll is how often the state file's modification time is checked.
 	Poll time.Duration
 	// UpstreamRoots replaces the system roots for verifying the CDN. Tests
@@ -53,7 +56,10 @@ type Proxy struct {
 	upstream *httputil.ReverseProxy
 	crops    sync.Map // image path -> *crop
 	log      *log.Logger
-	modTime  time.Time
+	// modTime is the state file's modification time when it was last
+	// loaded, nil when there is no state file. The poll goroutine writes
+	// it and the health endpoint reads it.
+	modTime atomic.Pointer[time.Time]
 }
 
 type crop struct {
@@ -100,18 +106,19 @@ func New(opts Options) (*Proxy, error) {
 // reload reads the state file if it changed since the last look.
 func (p *Proxy) reload() error {
 	st, err := os.Stat(filepath.Join(p.opts.StateDir, state.FileName))
+	prev := p.modTime.Load()
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		if p.modTime.IsZero() {
+		if prev == nil {
 			return nil
 		}
 		p.table.Store(&map[string]string{})
-		p.modTime = time.Time{}
+		p.modTime.Store(nil)
 		p.log.Printf("state file removed; forwarding everything")
 		return nil
 	case err != nil:
 		return err
-	case st.ModTime().Equal(p.modTime):
+	case prev != nil && st.ModTime().Equal(*prev):
 		return nil
 	}
 	f, err := state.Load(p.opts.StateDir)
@@ -120,10 +127,32 @@ func (p *Proxy) reload() error {
 		return nil
 	}
 	m := f.Map()
+	mt := st.ModTime()
 	p.table.Store(&m)
-	p.modTime = st.ModTime()
+	p.modTime.Store(&mt)
 	p.log.Printf("state loaded: %d people", len(m))
 	return nil
+}
+
+// Health answers GET /health with the version, how many people the table
+// holds, and when the state file was last loaded, null when there is none.
+// It is meant for a plain HTTP port beside the TLS listener, which answers
+// only as the CDN with a private certificate and so cannot be probed without
+// ceremony. It never touches the upstream and is not logged, since a monitor
+// asks every few seconds.
+func (p *Proxy) Health() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		body := struct {
+			Version string     `json:"version"`
+			People  int        `json:"people"`
+			State   *time.Time `json:"state"`
+		}{p.opts.Version, len(*p.table.Load()), p.modTime.Load()}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		json.NewEncoder(w).Encode(body)
+	})
+	return mux
 }
 
 // Serve accepts TLS connections on l until ctx ends.
