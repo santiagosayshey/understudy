@@ -174,7 +174,7 @@ Every setting is a flag with an environment variable of the same name under `UND
 - Loads the state file at start and re-reads it when its modification time changes. Builds the map from CDN path to image file under the portraits directory.
 - A hit serves the file with an ETag from its content hash. A non-square image is centre-cropped on first serve and the result kept in memory.
 - A miss is forwarded to the CDN with the original path and the CDN's own hostname, over TLS verified against the system roots, and streamed back with its status.
-- The status port answers `/healthz` and `/api/status` in plain HTTP, so a container health check needs no certificate.
+- The status port answers `/health` in plain HTTP with the version, the number of people in the map, and when the state file was last loaded, so a monitor needs no certificate.
 - One log line per request: path, hit or miss, status, bytes, duration.
 
 ### The editor process

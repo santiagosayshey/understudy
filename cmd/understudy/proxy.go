@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/santiagosayshey/understudy/internal/plex"
 	"github.com/santiagosayshey/understudy/internal/proxy"
@@ -19,6 +22,7 @@ import (
 func runProxy(args []string) int {
 	fs := flag.NewFlagSet("proxy", flag.ContinueOnError)
 	listen := fs.String("listen", envOr("UNDERSTUDY_LISTEN", ":443"), "address to serve TLS on")
+	statusListen := fs.String("status-listen", envOr("UNDERSTUDY_STATUS_LISTEN", ":8091"), "address to serve /health on, plain HTTP")
 	certDir := fs.String("certs", envOr("UNDERSTUDY_CERTS", "/certs"), "directory holding leaf.crt and leaf.key")
 	cdn := fs.String("cdn", envOr("UNDERSTUDY_CDN", plex.CDN), "the real CDN to forward misses to")
 	stateDir := fs.String("state", envOr("UNDERSTUDY_STATE", "/state"), "directory the resolving job writes the state file to")
@@ -29,7 +33,7 @@ func runProxy(args []string) int {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	p, err := proxy.New(proxy.Options{
 		CertFile: filepath.Join(*certDir, "leaf.crt"), KeyFile: filepath.Join(*certDir, "leaf.key"),
-		CDN: *cdn, StateDir: *stateDir, Portraits: *portraits, Logger: logger,
+		CDN: *cdn, StateDir: *stateDir, Portraits: *portraits, Logger: logger, Version: version,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "proxy:", err)
@@ -40,9 +44,25 @@ func runProxy(args []string) int {
 		fmt.Fprintln(os.Stderr, "proxy:", err)
 		return exitFailed
 	}
+	sl, err := net.Listen("tcp", *statusListen)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "proxy:", err)
+		return exitFailed
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	logger.Printf("understudy %s: proxy on %s, forwarding misses to %s", version, l.Addr(), *cdn)
+	status := &http.Server{Handler: p.Health(), ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		if err := status.Serve(sl); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Printf("status: %v", err)
+		}
+	}()
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		status.Shutdown(shutdown)
+	}()
+	logger.Printf("understudy %s: proxy on %s, forwarding misses to %s, health on %s", version, l.Addr(), *cdn, sl.Addr())
 	if err := p.Serve(ctx, l); err != nil {
 		fmt.Fprintln(os.Stderr, "proxy:", err)
 		return exitFailed

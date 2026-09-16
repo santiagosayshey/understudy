@@ -24,7 +24,7 @@
 
 Understudy lets you replace Plex's actor portraits with pictures of your own by pretending to be Plex's metadata CDN. It is one small binary with three jobs:
 
-- **proxy** answers as the CDN beside Plex, serving your portraits and forwarding the rest.
+- **proxy** answers as the CDN beside Plex, serving your portraits and forwarding the rest. It also answers `/health` on a plain HTTP port, so a monitor can watch it without the certificate.
 - **sync** asks Plex which URL it currently uses for each person you configured, since Plex names portraits by a hash that changes when its photo does, writes that down for the proxy, and clears Plex's photo cache when something changed.
 - **edit** is a web page for choosing portraits: find the person, confirm it is the right one, crop, review, apply.
 
@@ -195,6 +195,7 @@ Everything is set with environment variables, or the flag of the same name.
 | `UNDERSTUDY_TMDB_KEY` | | A TMDb [API key](https://www.themoviedb.org/settings/api) or read access token. `edit` then offers TMDb's portraits on the actor page. Optional. |
 | `UNDERSTUDY_CERTS` | `/certs` | Where `cert` writes the certificates and `proxy` reads them. |
 | `UNDERSTUDY_LISTEN` | `:443` | The address `proxy` listens on. |
+| `UNDERSTUDY_STATUS_LISTEN` | `:8091` | Where `proxy` answers `/health` in plain HTTP: the version, how many people it serves, and when the state was last loaded. |
 | `UNDERSTUDY_LISTEN` | `:8090` | The address `edit` listens on. |
 | `UNDERSTUDY_CDN` | `https://metadata-static.plex.tv` | The real CDN `proxy` forwards misses to. |
 

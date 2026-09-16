@@ -91,10 +91,31 @@ func TestProxy(t *testing.T) {
 	p, err := New(Options{
 		CertFile: filepath.Join(certDir, "leaf.crt"), KeyFile: filepath.Join(certDir, "leaf.key"),
 		CDN: cdn.URL, StateDir: stateDir, Portraits: portraits, Poll: 30 * time.Millisecond,
-		UpstreamRoots: roots, Logger: log.New(io.Discard, "", 0),
+		UpstreamRoots: roots, Logger: log.New(io.Discard, "", 0), Version: "test",
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// the health endpoint, plain HTTP on its own port
+	status := httptest.NewServer(p.Health())
+	defer status.Close()
+	health := func() (int, map[string]any) {
+		t.Helper()
+		res, err := http.Get(status.URL + "/health")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var m map[string]any
+		json.NewDecoder(res.Body).Decode(&m)
+		return res.StatusCode, m
+	}
+	if code, m := health(); code != 200 || m["version"] != "test" || m["people"] != 3.0 || m["state"] == nil {
+		t.Fatalf("health: %d %v", code, m)
+	}
+	if res, err := http.Get(status.URL + "/f/people/aaa.jpg"); err != nil || res.StatusCode != 404 {
+		t.Fatalf("the status port serves nothing but /health: %v %v", res, err)
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -176,5 +197,8 @@ func TestProxy(t *testing.T) {
 	}
 	if res, _ := get("GET", "/f/people/aaa.jpg"); res.StatusCode != 404 {
 		t.Fatalf("old path should now miss and reach the CDN: %d", res.StatusCode)
+	}
+	if _, m := health(); m["people"] != 1.0 {
+		t.Fatalf("health should follow the reload: %v", m)
 	}
 }
