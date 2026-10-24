@@ -20,6 +20,9 @@
   </picture>
 </p>
 
+> [!IMPORTANT]
+> From [Plex 1.43.5](https://forums.plex.tv/t/plex-media-server/30447/718), Plex refuses to fetch portraits from a private address. Every actor portrait then fails to load. Give the proxy an address in a documentation range such as 198.51.100.0/24. The [compose file](#compose) below uses that range.
+
 ## Overview
 
 Understudy lets you replace Plex's actor portraits with pictures of your own by pretending to be Plex's metadata CDN. It is one small binary with three jobs:
@@ -77,7 +80,7 @@ services:
       - ./state:/state:ro
     networks:
       understudy:
-        ipv4_address: 172.31.250.10
+        ipv4_address: 198.51.100.10
     restart: unless-stopped
 
   # Looks up each person's portrait URL in Plex, writes it to state/ for the
@@ -107,7 +110,7 @@ services:
     # from it. Only this one name is redirected. The address is the proxy's
     # ipv4_address above.
     extra_hosts:
-      - "metadata-static.plex.tv:172.31.250.10"
+      - "metadata-static.plex.tv:198.51.100.10"
     volumes:
       - /path/to/plex/config:/config
       # The startup script cert wrote. The linuxserver image runs it on every
@@ -116,9 +119,11 @@ services:
 
 networks:
   understudy:
+    # A documentation range. From 1.43.5, Plex refuses to fetch portraits
+    # from private and several other reserved ranges. See the README note.
     ipam:
       config:
-        - subnet: 172.31.250.0/24
+        - subnet: 198.51.100.0/24
 ```
 
 ### Certificates
