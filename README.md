@@ -13,29 +13,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/santiagosayshey/understudy?logo=opensourceinitiative&logoColor=white" alt="license"></a>
 </p>
 
-> [!IMPORTANT]
-> **Plex 1.43.5 refuses private addresses.** From [Plex Media Server 1.43.5](https://forums.plex.tv/t/plex-media-server/30447/718), Plex checks the address it has connected to before it fetches a portrait. It refuses private addresses and several other reserved ranges. The release notes do not mention the change. A proxy at a private address such as 172.31.250.10 therefore gets no requests at all. Every actor portrait fails to load, not only the ones you replaced. Plex's log shows each fetch "aborted by pre-request callback".
->
-> The proxy now needs an address Plex accepts. The documentation ranges work. Nothing on the internet uses those ranges. The compose files here use 198.51.100.0/24. To move an existing setup, change the network's `subnet` and the proxy's `ipv4_address`. Then change the Plex `extra_hosts` line to the same address. Run `docker compose down` and then `docker compose up -d` so Docker recreates the network. If Plex is in its own compose file, recreate Plex as well.
->
-> Each address below was tried as the proxy's address against a fresh Plex 1.43.5.11029:
->
-> | Address | Range | Plex 1.43.5 |
-> | --- | --- | --- |
-> | 10.250.0.10 | private | refused |
-> | 172.31.250.10 | private | refused |
-> | 192.168.250.10 | private | refused |
-> | 100.64.250.10 | carrier-grade NAT | refused |
-> | 198.18.0.10 | benchmark testing | refused |
-> | 198.51.100.10 | documentation | accepted |
-> | 203.0.113.10 | documentation | accepted |
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.webp">
     <img src="docs/screenshots/hero-light.webp" width="800" alt="An actor's page in the editor">
   </picture>
 </p>
+
+> [!IMPORTANT]
+> From [Plex 1.43.5](https://forums.plex.tv/t/plex-media-server/30447/718), Plex refuses to fetch portraits from a private address. Every actor portrait then fails to load. Give the proxy an address in a documentation range such as 198.51.100.0/24. The [compose file](#compose) below uses that range.
 
 ## Overview
 

@@ -225,7 +225,7 @@ Two additions and a normal recreate:
 
 The proxy needs a fixed address the Plex container can reach on port 443. On Docker that is `ipv4_address` on a user-defined bridge network, which a host-networked Plex reaches through the bridge. Verified on Docker under WSL2. Not yet verified on Unraid, where one `curl` from the host to that address settles it.
 
-The address cannot be private. From 1.43.5, Plex checks the address it has connected to before it fetches a remote image. It refuses private addresses and several other reserved ranges. The examples use 198.51.100.0/24, a documentation range that Plex accepts. The note at the top of the README lists the addresses tried.
+The address cannot be private. From 1.43.5, Plex checks the address it has connected to before it fetches a remote image. It refuses private addresses and several other reserved ranges. The examples use 198.51.100.0/24, a documentation range that Plex accepts.
 
 ### All in one
 
