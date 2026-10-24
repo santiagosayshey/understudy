@@ -13,6 +13,23 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/santiagosayshey/understudy?logo=opensourceinitiative&logoColor=white" alt="license"></a>
 </p>
 
+> [!IMPORTANT]
+> **Plex 1.43.5 refuses private addresses.** From [Plex Media Server 1.43.5](https://forums.plex.tv/t/plex-media-server/30447/718), Plex checks the address it has connected to before it fetches a portrait. It refuses private addresses and several other reserved ranges. The release notes do not mention the change. A proxy at a private address such as 172.31.250.10 therefore gets no requests at all. Every actor portrait fails to load, not only the ones you replaced. Plex's log shows each fetch "aborted by pre-request callback".
+>
+> The proxy now needs an address Plex accepts. The documentation ranges work. Nothing on the internet uses those ranges. The compose files here use 198.51.100.0/24. To move an existing setup, change the network's `subnet` and the proxy's `ipv4_address`. Then change the Plex `extra_hosts` line to the same address. Run `docker compose down` and then `docker compose up -d` so Docker recreates the network. If Plex is in its own compose file, recreate Plex as well.
+>
+> Each address below was tried as the proxy's address against a fresh Plex 1.43.5.11029:
+>
+> | Address | Range | Plex 1.43.5 |
+> | --- | --- | --- |
+> | 10.250.0.10 | private | refused |
+> | 172.31.250.10 | private | refused |
+> | 192.168.250.10 | private | refused |
+> | 100.64.250.10 | carrier-grade NAT | refused |
+> | 198.18.0.10 | benchmark testing | refused |
+> | 198.51.100.10 | documentation | accepted |
+> | 203.0.113.10 | documentation | accepted |
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.webp">
@@ -77,7 +94,7 @@ services:
       - ./state:/state:ro
     networks:
       understudy:
-        ipv4_address: 172.31.250.10
+        ipv4_address: 198.51.100.10
     restart: unless-stopped
 
   # Looks up each person's portrait URL in Plex, writes it to state/ for the
@@ -107,7 +124,7 @@ services:
     # from it. Only this one name is redirected. The address is the proxy's
     # ipv4_address above.
     extra_hosts:
-      - "metadata-static.plex.tv:172.31.250.10"
+      - "metadata-static.plex.tv:198.51.100.10"
     volumes:
       - /path/to/plex/config:/config
       # The startup script cert wrote. The linuxserver image runs it on every
@@ -116,9 +133,11 @@ services:
 
 networks:
   understudy:
+    # A documentation range. From 1.43.5, Plex refuses to fetch portraits
+    # from private and several other reserved ranges. See the README note.
     ipam:
       config:
-        - subnet: 172.31.250.0/24
+        - subnet: 198.51.100.0/24
 ```
 
 ### Certificates

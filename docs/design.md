@@ -225,6 +225,8 @@ Two additions and a normal recreate:
 
 The proxy needs a fixed address the Plex container can reach on port 443. On Docker that is `ipv4_address` on a user-defined bridge network, which a host-networked Plex reaches through the bridge. Verified on Docker under WSL2. Not yet verified on Unraid, where one `curl` from the host to that address settles it.
 
+The address cannot be private. From 1.43.5, Plex checks the address it has connected to before it fetches a remote image. It refuses private addresses and several other reserved ranges. The examples use 198.51.100.0/24, a documentation range that Plex accepts. The note at the top of the README lists the addresses tried.
+
 ### All in one
 
 Three services from one image, the resolving job on an interval, and a Plex service with the two additions.
@@ -242,7 +244,7 @@ services:
       - ./state:/state
     networks:
       understudy:
-        ipv4_address: 172.31.250.10
+        ipv4_address: 198.51.100.10
   edit:
     image: ghcr.io/santiagosayshey/understudy:latest
     command: edit
@@ -269,14 +271,14 @@ services:
       - /path/to/plex/Cache/PhotoTranscoder:/plex/PhotoTranscoder
   plex:
     extra_hosts:
-      - "metadata-static.plex.tv:172.31.250.10"
+      - "metadata-static.plex.tv:198.51.100.10"
     volumes:
       - ./certs/plex:/custom-cont-init.d:ro
 networks:
   understudy:
     ipam:
       config:
-        - subnet: 172.31.250.0/24
+        - subnet: 198.51.100.0/24
 ```
 
 Without `--every` the job runs once and exits, for scripts.
